@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="bag_path" default="" />
+  <arg name="output_path" default="" />
+  <arg name="left_namespace" default="/luxonis/oak/left" />
+  <arg name="right_namespace" default="/luxonis/oak/right" />
+  <arg name="depth_namespace" default="/luxonis/oak/stereo" />
+  <arg name="rviz" default="false" />
+
+  <!-- Play bag file -->
+  <include file="$(find-pkg-share dataproc)/launch/helhest_play.launch.py">
+    <arg name="bag_path" value="$(var bag_path)" />
+  </include>
+
+  <!-- Decompress LEFT image -->
+  <node pkg="image_transport" exec="republish" name="uncompress_left" output="screen" namespace="luxonis/oak">
+    <param name="in_transport" value="compressed" />
+    <param name="out_transport" value="raw" />
+    <remap from="in/compressed" to="$(var left_namespace)/image_rect/compressed" />
+    <remap from="out" to="$(var left_namespace)/image_rect" />
+  </node>
+
+   <!-- Decompress RIGHT image -->
+  <node pkg="image_transport" exec="republish" name="uncompress_right" output="screen" namespace="luxonis/oak">
+    <param name="in_transport" value="compressed" />
+    <param name="out_transport" value="raw" />
+    <remap from="in/compressed" to="$(var right_namespace)/image_rect/compressed" />
+    <remap from="out" to="$(var right_namespace)/image_rect" />
+  </node>
+
+  <!-- Decompress DEPTH image -->
+  <node pkg="image_transport" exec="republish" name="uncompress_right" output="screen" namespace="luxonis/oak">
+    <param name="in_transport" value="compressedDepth" />
+    <param name="out_transport" value="raw" />
+    <remap from="in/compressedDepth" to="$(var depth_namespace)/image_raw/compressedDepth" />
+    <remap from="out" to="$(var depth_namespace)/image_raw/depth" />
+  </node>
+
+  <!-- Publish point cloud from depth image -->
+  <node pkg="depth_image_proc" exec="point_cloud_xyz_node" name="point_cloud_xyz_node" output="screen">
+    <remap from="image_rect" to="$(var depth_namespace)/image_raw" />
+    <remap from="camera_info" to="$(var depth_namespace)/camera_info" />
+    <remap from="points" to="$(var depth_namespace)/points" />
+
+    <param name="depth_image_transport" value="compressedDepth" />
+    <param name="queue_size" value="10" />
+  </node>
+
+  <!-- Save data -->
+  <node pkg="rgbd_proc" exec="save_data.py" name="save_data" output="screen">
+    <remap from="/camera_left/image_raw" to="$(var left_namespace)/image_rect" />
+    <remap from="/camera_right/image_raw" to="$(var right_namespace)/image_rect" />
+    <remap from="/depth/image_raw" to="$(var depth_namespace)/image_raw/depth" />
+
+    <remap from="/camera_left/camera_info" to="$(var left_namespace)/camera_info" />
+    <remap from="/camera_right/camera_info" to="$(var right_namespace)/camera_info" />
+    <remap from="/depth/camera_info" to="$(var depth_namespace)/camera_info" />
+
+    <remap from="/depth/points" to="$(var depth_namespace)/points" />
+
+    <param name="period" value="1.0" />
+    <param name="output_path" value="$(var output_path)" />
+  </node>
+
+  <!-- RVIZ2 -->
+  <node if="$(var rviz)" pkg="rviz2" exec="rviz2" name="rviz2"
+      args="-d $(find-pkg-share rgbd_proc)/config/rviz/data.rviz"/>
+
+</launch>
