@@ -30,6 +30,8 @@ install(
 
 install(PROGRAMS
     nodes/save_data.py
+    nodes/depth_estimation.py
+    nodes/depth_filter.py
     DESTINATION lib/${PROJECT_NAME}
 )
 

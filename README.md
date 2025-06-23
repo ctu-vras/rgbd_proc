@@ -31,11 +31,7 @@ The package is organized as a
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
 git clone git@github.com:ctu-vras/rgbd_proc.git
-
-cd ~/ros2_ws
-sudo apt install python3-vcstool
-vcs import src < ~/ros2_ws/src/rgbd_proc/dependencies.repos
-
+cd ~/ros2_ws/
 rosdep install --from-path src --ignore-src -r
 colcon build --symlink-install --packages-select rgbd_proc
 ```
