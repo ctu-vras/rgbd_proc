@@ -33,7 +33,7 @@ def get_disparity_from_depth(ind=None, show_disp=False, show_pcd=False):
     depth = cv2.imread(depth_files[ind], cv2.IMREAD_UNCHANGED)
     non_zero = depth > 0
     disp = np.zeros_like(depth, dtype=np.float32)
-    disp[non_zero] = (B * f) / (depth[non_zero])  # [m] * [pixels] / [pixels] = [m]
+    disp[non_zero] = (B * f) / (depth[non_zero] / 1000.)  # [m] * [pixels] / [pixels] = [m]
 
     if show_disp:
         # apply colormap to disparity
