@@ -13,7 +13,7 @@ import argparse
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Depth Correction Training')
+    parser = argparse.ArgumentParser(description='Disparity Correction Training')
     parser.add_argument('--dataset_path', type=str,
                         default='../data/ROUGH/helhest_2025_06_13-15_01_10',
                         help='Path to the dataset')
@@ -51,7 +51,7 @@ def load_calib(calib_path):
 
 class Data(Dataset):
     """
-    A dataset for depth correction.
+    A dataset for disparity correction.
     """
 
     def __init__(self, path, max_disp=100.0):
@@ -191,7 +191,7 @@ def train(args):
             disp_gt = disp_gt.float().to(device)
 
             optimizer.zero_grad()
-            depth_pred = model(torch.cat([img_in, disp_in], dim=1))
+            disp_pred = model(torch.cat([img_in, disp_in], dim=1))
 
             mask_dist = (disp_in > 0) & (disp_gt < ds.max_disp)
             mask_nan = torch.isnan(disp_gt) | torch.isnan(disp_gt)
@@ -200,7 +200,7 @@ def train(args):
             mask_valid[..., :, :7] = False
             mask = mask_dist & mask_valid & (~mask_nan)
 
-            loss = criterion(depth_pred[mask] / ds.max_disp, disp_gt[mask] / ds.max_disp)
+            loss = criterion(disp_pred[mask] / ds.max_disp, disp_gt[mask] / ds.max_disp)
             loss_epoch += loss.item()
 
             loss.backward()
@@ -228,21 +228,21 @@ def result(args):
 
     # visualize predictions
     with torch.no_grad():
-        img_in, depth_in, depth_gt = next(iter(loader))
+        img_in, disp_in, disp_gt = next(iter(loader))
         img_in = img_in.to(device)
-        depth_in = depth_in.float().to(device)
-        depth_pred = model(torch.cat([img_in, depth_in], dim=1))
-        depth_pred = depth_pred.cpu().numpy()[0][0]
-        depth_gt = depth_gt.cpu().numpy()[0][0]
+        disp_in = disp_in.float().to(device)
+        disp_pred = model(torch.cat([img_in, disp_in], dim=1))
+        disp_pred = disp_pred.cpu().numpy()[0][0]
+        disp_gt = disp_gt.cpu().numpy()[0][0]
 
-        # visualize colored depth
-        depth_scaled = cv2.convertScaleAbs(depth_pred, alpha=255.0 / depth_pred.max())
-        depth_colored = cv2.applyColorMap(depth_scaled, cv2.COLORMAP_JET)
-        cv2.imshow("Depth Prediction", depth_colored)
+        # visualize colored disparities
+        disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / disp_pred.max())
+        disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
+        cv2.imshow("Disparity Prediction", disp_colored)
 
-        depth_scaled_gt = cv2.convertScaleAbs(depth_gt, alpha=255.0 / depth_gt.max())
-        depth_colored_gt = cv2.applyColorMap(depth_scaled_gt, cv2.COLORMAP_JET)
-        cv2.imshow("Depth Ground Truth", depth_colored_gt)
+        disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / disp_gt.max())
+        disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
+        cv2.imshow("Disparity Ground Truth", disp_colored_gt)
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
