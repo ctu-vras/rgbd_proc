@@ -124,7 +124,7 @@ class Data(Dataset):
     def get_image(self, i, camera='left'):
         img_path = self.image_files[camera][i]
         img = Image.open(img_path)
-        img = np.asarray(img)
+        img = np.array(img)
         return img
 
     def get_disp(self, i, source='luxonis'):
@@ -165,7 +165,7 @@ class Data(Dataset):
         return img[np.newaxis], disp_input[np.newaxis], disp_label[np.newaxis]
 
 
-class DCModel(torch.nn.Module):
+class DispRef(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.model = smp.Linknet(
@@ -183,6 +183,19 @@ class DCModel(torch.nn.Module):
         return x
 
 
+def colorize_disp(disp, max_disp=None):
+    """
+    Colorize disparity map for visualization.
+    :param disp: Disparity map (H, W)
+    :return: Colorized disparity map (H, W, 3)
+    """
+    if max_disp is None:
+        max_disp = max(disp.max(), 1e-6)  # Avoid division by zero
+    disp_vis = cv2.convertScaleAbs(disp, alpha=255 / max_disp)
+    disp_vis = cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
+    return disp_vis
+
+
 def train(args):
     dataset_path = args.dataset_path
     device = args.device
@@ -194,12 +207,15 @@ def train(args):
     # ds.calculate_img_stats()
     loader = DataLoader(ds, batch_size=bs, shuffle=True)
 
-    model = DCModel()
+    model = DispRef()
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.L1Loss()
+
     loss_min = np.inf
+    counter = 0
+    tb_logger = SummaryWriter(log_dir='runs/disp_refinement')
     for epoch in range(nepochs):
         model.train()
         loss_epoch = 0
@@ -208,34 +224,61 @@ def train(args):
             disp_in = disp_in.float().to(device)
             disp_gt = disp_gt.float().to(device)
 
-            # normalize input images
+            # normalize inputs
             img_in_norm = (img_in/255. - ds.mean_gray) / ds.std_gray
             disp_in_norm = disp_in / ds.max_disp
+            inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
             optimizer.zero_grad()
-            disp_corr = model(torch.cat([img_in_norm, disp_in_norm], dim=1))
+            disp_corr = model(inputs)
             disp_pred = disp_in + disp_corr * ds.max_disp
 
-            mask_dist = (disp_in > 0)
             mask_nan = torch.isnan(disp_gt) | torch.isnan(disp_gt)
             mask_valid = torch.ones(disp_gt.shape, dtype=torch.bool, device=device)
             mask_valid[..., :7, :] = False
             mask_valid[..., :, :7] = False
-            mask = mask_dist & mask_valid & (~mask_nan)
+            mask = (~mask_nan) & mask_valid
 
             loss = criterion(disp_pred[mask], disp_gt[mask])
+            tb_logger.add_scalar('loss(iter)', loss, counter)
             loss_epoch += loss.item()
 
             loss.backward()
             optimizer.step()
 
+            counter += 1
+
         loss_epoch /= len(loader)
-        print(f'Epoch {epoch}, Loss: {loss_epoch}')
+        tb_logger.add_scalar('loss(epoch)', loss_epoch, epoch)
         # save model checkpoint
         if loss_epoch < loss_min:
             loss_min = loss_epoch
             print(f'Saving model with loss {loss_min:.4f}')
-            torch.save(model.state_dict(), 'dc_net.pth')
+            model.eval()
+            torch.save(model.state_dict(), 'model.pth')
+
+            with torch.inference_mode():
+                img_in, disp_in, disp_gt = next(iter(loader))
+                img_in = img_in.to(device)
+                disp_in = disp_in.float().to(device)
+
+                # normalize input images
+                img_in_norm = (img_in / 255. - ds.mean_gray) / ds.std_gray
+                disp_in_norm = disp_in / ds.max_disp
+
+                disp_corr = model(torch.cat([img_in_norm, disp_in_norm], dim=1))
+                disp_pred = disp_in + disp_corr * ds.max_disp
+
+                # log input and output images to TensorBoard
+                img_in = img_in.cpu().numpy()[0][0]
+                disp_in = colorize_disp(disp_in.cpu()[0][0].numpy())
+                disp_gt = colorize_disp(disp_gt.cpu()[0][0].numpy())
+                disp_pred = colorize_disp(disp_pred.cpu()[0][0].numpy())
+
+                tb_logger.add_image('Input Image', img_in, epoch, dataformats='HW')
+                tb_logger.add_image('Input Disparity', disp_in, epoch, dataformats='HWC')
+                tb_logger.add_image('Ground Truth Disparity', disp_gt, epoch, dataformats='HWC')
+                tb_logger.add_image('Refined Disparity', disp_pred, epoch, dataformats='HWC')
 
 
 def main():

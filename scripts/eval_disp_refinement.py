@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import segmentation_models_pytorch as smp
-from train_disp_correction import Data, DCModel
+from train_disp_refinement import Data, DispRef
 
 
 def parse_args():
@@ -61,10 +61,10 @@ def result(args):
 
     ds = Data(dataset_path)
     # ds.calculate_img_stats()
-    loader = DataLoader(Data(dataset_path), batch_size=1, shuffle=True)
+    loader = DataLoader(Data(dataset_path), batch_size=1, shuffle=False)
 
-    model = DCModel()
-    model.load_state_dict(torch.load('dc_net.pth', map_location=device))
+    model = DispRef()
+    model.load_state_dict(torch.load('model.pth', map_location=device))
     model.eval()
     model.to(device)
 
@@ -85,28 +85,29 @@ def result(args):
         disp_gt = disp_gt.cpu().numpy()[0][0]
         disp_in = disp_in.cpu().numpy()[0][0]
 
-        disp_in_scaled = cv2.convertScaleAbs(disp_in, alpha=255.0 / ds.max_disp)
-        disp_in_colored = cv2.applyColorMap(disp_in_scaled, cv2.COLORMAP_JET)
-        cv2.imshow("Disparity Input", disp_in_colored)
+        # disp_in_scaled = cv2.convertScaleAbs(disp_in, alpha=255.0 / ds.max_disp)
+        # disp_in_colored = cv2.applyColorMap(disp_in_scaled, cv2.COLORMAP_JET)
+        # cv2.imshow("Disparity Input", disp_in_colored)
+        #
+        # disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / ds.max_disp)
+        # disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
+        # cv2.imshow("Disparity Prediction", disp_colored)
+        #
+        # disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / ds.max_disp)
+        # disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
+        # cv2.imshow("Disparity Ground Truth", disp_colored_gt)
+        #
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
-        disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / ds.max_disp)
-        disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
-        cv2.imshow("Disparity Prediction", disp_colored)
-
-        disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / ds.max_disp)
-        disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
-        cv2.imshow("Disparity Ground Truth", disp_colored_gt)
-
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
+        # visualize point clouds
         points = ds.disp_to_cloud(disp_pred)
         points_gt = ds.disp_to_cloud(disp_gt)
-        valid_mask = disp_in > 0
+        valid_mask = (disp_pred > 2) & (disp_pred < ds.max_disp) &\
+                     (disp_gt > 2) & (disp_gt < ds.max_disp)
         points = points[valid_mask.flatten()]
         points_gt = points_gt[valid_mask.flatten()]
 
-        # visualize point clouds
         pcd_pred = o3d.geometry.PointCloud()
         pcd_pred.points = o3d.utility.Vector3dVector(points)
         pcd_pred.paint_uniform_color([0, 1, 0])  # green
@@ -115,7 +116,11 @@ def result(args):
         pcd_gt.points = o3d.utility.Vector3dVector(points_gt)
         pcd_gt.paint_uniform_color([1, 0, 0])  # red
 
+        pcd_pred, _ = pcd_pred.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+        pcd_gt, _ = pcd_gt.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+
         o3d.visualization.draw_geometries([pcd_pred, pcd_gt])
+        # o3d.visualization.draw_geometries([pcd_gt])
 
 
 def inference_test(agrs):
@@ -123,7 +128,7 @@ def inference_test(agrs):
     from tqdm import tqdm
 
     device = 'cpu'
-    model = DCModel()
+    model = DispRef()
     model.to(device)
     model.eval()
     img_dummy = torch.randn(1, 1, 480, 768).to(device)
@@ -142,9 +147,9 @@ def inference_test(agrs):
 def main():
     args = parse_args()
 
-    data_test(args)
+    # data_test(args)
     result(args)
-    inference_test(args)
+    # inference_test(args)
 
 
 if __name__ == '__main__':
