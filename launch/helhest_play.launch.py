@@ -32,7 +32,6 @@ def generate_launch_description():
             remappings=[
                 ('in/compressedDepth', '/luxonis/oak/stereo/image_raw/compressedDepth'),
                 ('out', '/luxonis/oak/stereo/image_raw/depth'),
-                ('out', '/luxonis_tof_front/tof_front/tof/image_raw/depth'),
             ],
             parameters=[{
                 'in_transport': 'compressedDepth',

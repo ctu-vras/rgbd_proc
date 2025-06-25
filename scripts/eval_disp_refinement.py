@@ -3,7 +3,9 @@ import numpy as np
 import cv2
 import argparse
 import torch
-from train_disp_refinement import Data, DispRef
+from disp_refine.dataset import Data
+from disp_refine.linknet import DispRef
+from disp_refine.vis import colorize_disp
 
 
 def parse_args():
@@ -28,14 +30,12 @@ def data_test(args):
     img, disp_in, disp_gt = ds[i]
     max_disp = min(disp_in.max(), disp_gt.max())
 
-    cv2.imshow('img', img.squeeze())
+    cv2.imshow('img', img[0])
 
-    disp_scaled = cv2.convertScaleAbs(disp_in.squeeze(), alpha=255.0 / max_disp)
-    disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
+    disp_colored = colorize_disp(disp_in[0], max_disp=max_disp)
     cv2.imshow("Disp Input", disp_colored)
 
-    disp_scaled_label = cv2.convertScaleAbs(disp_gt.squeeze(), alpha=255.0 / max_disp)
-    disp_colored_label = cv2.applyColorMap(disp_scaled_label, cv2.COLORMAP_JET)
+    disp_colored_label = colorize_disp(disp_gt[0], max_disp=max_disp)
     cv2.imshow("Disp Label", disp_colored_label)
 
     # mask_nan = ~np.isnan(disp_gt)
@@ -63,7 +63,7 @@ def result(args):
     model.to(device)
 
     with torch.no_grad():
-        i = 450
+        i = 0
         sample = ds[i]
         batch = [torch.from_numpy(s)[np.newaxis] for s in sample]
         img_in, disp_in, disp_gt = batch
@@ -73,8 +73,9 @@ def result(args):
         # normalize input images
         img_in_norm = (img_in / 255. - ds.mean_gray) / ds.std_gray
         disp_in_norm = disp_in / ds.max_disp
+        inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
-        disp_corr = model(torch.cat([img_in_norm, disp_in_norm], dim=1))
+        disp_corr = model(inputs)
         disp_pred = disp_in + disp_corr * ds.max_disp
 
         # visualize colored disparities
@@ -82,16 +83,13 @@ def result(args):
         disp_gt = disp_gt.cpu().numpy()[0][0]
         disp_in = disp_in.cpu().numpy()[0][0]
 
-        disp_in_scaled = cv2.convertScaleAbs(disp_in, alpha=255.0 / ds.max_disp)
-        disp_in_colored = cv2.applyColorMap(disp_in_scaled, cv2.COLORMAP_JET)
+        disp_in_colored = colorize_disp(disp_in, max_disp=ds.max_disp)
         cv2.imshow("Disparity Input", disp_in_colored)
 
-        disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / ds.max_disp)
-        disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
+        disp_colored = colorize_disp(disp_pred, max_disp=ds.max_disp)
         cv2.imshow("Disparity Prediction", disp_colored)
 
-        disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / ds.max_disp)
-        disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
+        disp_colored_gt = colorize_disp(disp_gt, max_disp=ds.max_disp)
         cv2.imshow("Disparity Ground Truth", disp_colored_gt)
 
         cv2.waitKey(0)
