@@ -7,7 +7,7 @@
   <arg name="device" default="cuda" />
   <arg name="max_disp" default="192" />
   <arg name="model_name" default="stackhourglass" />
-  <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/pretrained_model_KITTI2015.tar" />
+  <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/psmnet/pretrained_model_KITTI2015.tar" />
 
   <!-- Decompress LEFT image -->
   <node pkg="image_transport" exec="republish" name="uncompress_left" output="screen" namespace="luxonis/oak">

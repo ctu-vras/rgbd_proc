@@ -1,13 +1,8 @@
 import open3d as o3d
 import numpy as np
 import cv2
-from PIL import Image
-import yaml
 import argparse
 import torch
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-import segmentation_models_pytorch as smp
 from train_disp_refinement import Data, DispRef
 
 
@@ -43,13 +38,12 @@ def data_test(args):
     disp_colored_label = cv2.applyColorMap(disp_scaled_label, cv2.COLORMAP_JET)
     cv2.imshow("Disp Label", disp_colored_label)
 
-    mask_dist = (disp_in > 0) & (disp_gt < max_disp)
-    mask_nan = np.isnan(disp_gt) | np.isnan(disp_gt)
-    mask_valid = np.ones(disp_gt.shape, dtype=bool)
-    mask_valid[:, :7, :] = False
-    mask_valid[:, :, :7] = False
-    mask = mask_dist & mask_valid & (~mask_nan)
-    cv2.imshow("Mask", mask.squeeze().astype(np.uint8) * 255)
+    # mask_nan = ~np.isnan(disp_gt)
+    # mask_valid = np.ones(disp_gt.shape, dtype=bool)
+    # mask_valid[:, :7, :] = False
+    # mask_valid[:, :, :7] = False
+    # mask = mask_valid & mask_nan
+    # cv2.imshow("Mask", mask.squeeze().astype(np.uint8) * 255)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -61,15 +55,18 @@ def result(args):
 
     ds = Data(dataset_path)
     # ds.calculate_img_stats()
-    loader = DataLoader(Data(dataset_path), batch_size=1, shuffle=False)
 
     model = DispRef()
-    model.load_state_dict(torch.load('model.pth', map_location=device))
+    model_path = '../config/weights/disp_refine/model.pth'
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     model.to(device)
 
     with torch.no_grad():
-        img_in, disp_in, disp_gt = next(iter(loader))
+        i = 450
+        sample = ds[i]
+        batch = [torch.from_numpy(s)[np.newaxis] for s in sample]
+        img_in, disp_in, disp_gt = batch
         img_in = img_in.to(device)
         disp_in = disp_in.float().to(device)
 
@@ -85,28 +82,33 @@ def result(args):
         disp_gt = disp_gt.cpu().numpy()[0][0]
         disp_in = disp_in.cpu().numpy()[0][0]
 
-        # disp_in_scaled = cv2.convertScaleAbs(disp_in, alpha=255.0 / ds.max_disp)
-        # disp_in_colored = cv2.applyColorMap(disp_in_scaled, cv2.COLORMAP_JET)
-        # cv2.imshow("Disparity Input", disp_in_colored)
-        #
-        # disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / ds.max_disp)
-        # disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
-        # cv2.imshow("Disparity Prediction", disp_colored)
-        #
-        # disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / ds.max_disp)
-        # disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
-        # cv2.imshow("Disparity Ground Truth", disp_colored_gt)
-        #
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        disp_in_scaled = cv2.convertScaleAbs(disp_in, alpha=255.0 / ds.max_disp)
+        disp_in_colored = cv2.applyColorMap(disp_in_scaled, cv2.COLORMAP_JET)
+        cv2.imshow("Disparity Input", disp_in_colored)
+
+        disp_scaled = cv2.convertScaleAbs(disp_pred, alpha=255.0 / ds.max_disp)
+        disp_colored = cv2.applyColorMap(disp_scaled, cv2.COLORMAP_JET)
+        cv2.imshow("Disparity Prediction", disp_colored)
+
+        disp_scaled_gt = cv2.convertScaleAbs(disp_gt, alpha=255.0 / ds.max_disp)
+        disp_colored_gt = cv2.applyColorMap(disp_scaled_gt, cv2.COLORMAP_JET)
+        cv2.imshow("Disparity Ground Truth", disp_colored_gt)
+
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
         # visualize point clouds
         points = ds.disp_to_cloud(disp_pred)
         points_gt = ds.disp_to_cloud(disp_gt)
+        points_in = ds.disp_to_cloud(disp_in)
+
         valid_mask = (disp_pred > 2) & (disp_pred < ds.max_disp) &\
-                     (disp_gt > 2) & (disp_gt < ds.max_disp)
+                     (disp_gt > 2) & (disp_gt < ds.max_disp) & \
+                     (disp_in > 2) & (disp_in < ds.max_disp)
+
         points = points[valid_mask.flatten()]
         points_gt = points_gt[valid_mask.flatten()]
+        points_in = points_in[valid_mask.flatten()]
 
         pcd_pred = o3d.geometry.PointCloud()
         pcd_pred.points = o3d.utility.Vector3dVector(points)
@@ -116,11 +118,15 @@ def result(args):
         pcd_gt.points = o3d.utility.Vector3dVector(points_gt)
         pcd_gt.paint_uniform_color([1, 0, 0])  # red
 
-        pcd_pred, _ = pcd_pred.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-        pcd_gt, _ = pcd_gt.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+        pcd_in = o3d.geometry.PointCloud()
+        pcd_in.points = o3d.utility.Vector3dVector(points_in)
+        pcd_in.paint_uniform_color([0, 0, 1])  # blue
 
-        o3d.visualization.draw_geometries([pcd_pred, pcd_gt])
-        # o3d.visualization.draw_geometries([pcd_gt])
+        # coordinate frame for reference
+        coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5, origin=[0, 0, 0])
+
+        # o3d.visualization.draw_geometries([pcd_pred, pcd_in])
+        o3d.visualization.draw_geometries([pcd_pred, pcd_in, pcd_gt, coord_frame])
 
 
 def inference_test(agrs):

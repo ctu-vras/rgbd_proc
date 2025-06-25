@@ -1,5 +1,6 @@
 import copy
 import os
+from datetime import datetime
 import numpy as np
 from glob import glob
 from tqdm import tqdm
@@ -159,9 +160,9 @@ class Data(Dataset):
         return points.T
 
     def get_sample(self, i):
-        img = self.get_image(i, camera='right')
-        disp_input = self.get_disp(i, source='luxonis')
-        disp_label = self.get_disp(i, source='defom-stereo')
+        img = self.get_image(i, camera='left')
+        disp_input = self.get_disp(i, source='luxonis')  # l2r
+        disp_label = self.get_disp(i, source='defom-stereo')  # l2r
         return img[np.newaxis], disp_input[np.newaxis], disp_label[np.newaxis]
 
 
@@ -170,17 +171,14 @@ class DispRef(torch.nn.Module):
         super().__init__()
         self.model = smp.Linknet(
             encoder_name='mobilenet_v2',
-            # encoder_weights='imagenet',
-            encoder_weights=None,  # No pre-trained weights, as we use grayscale images as input
+            encoder_weights='imagenet',
             in_channels=2,
             classes=1,
         )
-        self.activation = torch.nn.Tanh()  # Activation function for output layer
+        self.activation = torch.nn.Tanh()
 
     def forward(self, x):
-        x = self.model(x)
-        x = self.activation(x)
-        return x
+        return self.activation(self.model(x))
 
 
 def colorize_disp(disp, max_disp=None):
@@ -215,7 +213,9 @@ def train(args):
 
     loss_min = np.inf
     counter = 0
-    tb_logger = SummaryWriter(log_dir='runs/disp_refinement')
+    log_dir = f'runs/disp_refinement_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
+    os.makedirs(log_dir, exist_ok=True)
+    tb_logger = SummaryWriter(log_dir=log_dir)
     for epoch in range(nepochs):
         model.train()
         loss_epoch = 0
@@ -233,8 +233,8 @@ def train(args):
             disp_corr = model(inputs)
             disp_pred = disp_in + disp_corr * ds.max_disp
 
-            mask_nan = torch.isnan(disp_gt) | torch.isnan(disp_gt)
-            mask_valid = torch.ones(disp_gt.shape, dtype=torch.bool, device=device)
+            mask_nan = torch.isnan(disp_gt)
+            mask_valid = torch.ones_like(disp_gt, dtype=torch.bool)
             mask_valid[..., :7, :] = False
             mask_valid[..., :, :7] = False
             mask = (~mask_nan) & mask_valid
@@ -253,24 +253,26 @@ def train(args):
         # save model checkpoint
         if loss_epoch < loss_min:
             loss_min = loss_epoch
-            print(f'Saving model with loss {loss_min:.4f}')
+            print(f'Epoch: {epoch}. Saving model with loss {loss_min:.4f}')
             model.eval()
-            torch.save(model.state_dict(), 'model.pth')
+            torch.save(model.state_dict(), os.path.join(log_dir, 'model.pth'))
 
             with torch.inference_mode():
                 img_in, disp_in, disp_gt = next(iter(loader))
                 img_in = img_in.to(device)
                 disp_in = disp_in.float().to(device)
 
-                # normalize input images
+                # normalize inputs
                 img_in_norm = (img_in / 255. - ds.mean_gray) / ds.std_gray
                 disp_in_norm = disp_in / ds.max_disp
+                inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
-                disp_corr = model(torch.cat([img_in_norm, disp_in_norm], dim=1))
+                disp_corr = model(inputs)
                 disp_pred = disp_in + disp_corr * ds.max_disp
 
                 # log input and output images to TensorBoard
                 img_in = img_in.cpu().numpy()[0][0]
+                disp_err = colorize_disp((disp_gt - disp_pred.cpu())[0][0].numpy())
                 disp_in = colorize_disp(disp_in.cpu()[0][0].numpy())
                 disp_gt = colorize_disp(disp_gt.cpu()[0][0].numpy())
                 disp_pred = colorize_disp(disp_pred.cpu()[0][0].numpy())
@@ -279,6 +281,7 @@ def train(args):
                 tb_logger.add_image('Input Disparity', disp_in, epoch, dataformats='HWC')
                 tb_logger.add_image('Ground Truth Disparity', disp_gt, epoch, dataformats='HWC')
                 tb_logger.add_image('Refined Disparity', disp_pred, epoch, dataformats='HWC')
+                tb_logger.add_image('Disparity Error', disp_err, epoch, dataformats='HWC')
 
 
 def main():

@@ -40,7 +40,22 @@ def generate_launch_description():
             }],
         ),
 
-        # Uncompress the rgb image and publish it as raw
+        # Uncompress left rgb image and publish it as raw
+        Node(
+            package='image_transport',
+            executable='republish',
+            name='rgb_uncompressor',
+            remappings=[
+                ('in/compressed', '/luxonis/oak/left/image_rect/compressed'),
+                ('out', '/luxonis/oak/left/image_rect'),
+            ],
+            parameters=[{
+                'in_transport': 'compressed',
+                'out_transport': 'raw',
+            }],
+        ),
+
+        # Uncompress right rgb image and publish it as raw
         Node(
             package='image_transport',
             executable='republish',

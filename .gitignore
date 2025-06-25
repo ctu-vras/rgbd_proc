@@ -165,3 +165,6 @@ data/*
 # Pytorch weights
 *.pth
 *.tar
+
+# Tensorboard logs
+runs/
