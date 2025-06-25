@@ -22,8 +22,7 @@ import tf2_ros
 
 
 class DepthRefinementNode(Node):
-    normal_mean_var = {'mean': 0.3611,
-                       'std': 0.2979}
+    normal_mean_var = {'mean': 0.3611, 'std': 0.2979}
     infer_transform = transforms.Compose([transforms.ToTensor(),
                                           transforms.Normalize(**normal_mean_var)])
 

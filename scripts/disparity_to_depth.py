@@ -4,7 +4,7 @@ import cv2
 import yaml
 from tqdm import tqdm
 from glob import glob
-from depth_to_cloud import get_cloud_from_depth
+from disp_refine.utils import get_cloud_from_depth
 import open3d as o3d
 
 seq_path = '../data/ROUGH/helhest_2025_06_13-15_01_10'

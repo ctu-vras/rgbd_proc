@@ -4,8 +4,7 @@ import cv2
 import yaml
 import open3d as o3d
 from tqdm import tqdm
-from depth_to_cloud import get_cloud_from_depth
-
+from disp_refine.utils import get_cloud_from_depth
 
 seq_path = '../data/ROUGH/helhest_2025_06_13-15_01_10'
 image_files = sorted(os.listdir(os.path.join(seq_path, 'images', 'left')))
