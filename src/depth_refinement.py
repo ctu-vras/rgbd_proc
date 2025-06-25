@@ -3,11 +3,10 @@
 import cv2
 import numpy as np
 import torch
-from torchvision import transforms
-import torch.nn.functional as F
-from PIL import Image as pillow
 from time import time
 from disp_refine.linknet import DispRef
+from disp_refine.utils import get_disp_l2r_from_depth_right
+from disp_refine.vis import colorize_disp
 
 import rclpy
 import rclpy.time
@@ -23,8 +22,6 @@ import tf2_ros
 
 class DepthRefinementNode(Node):
     normal_mean_var = {'mean': 0.3611, 'std': 0.2979}
-    infer_transform = transforms.Compose([transforms.ToTensor(),
-                                          transforms.Normalize(**normal_mean_var)])
 
     def __init__(self):
         super().__init__('depth_refinement_node')
@@ -45,7 +42,7 @@ class DepthRefinementNode(Node):
 
         self.img_topics = ['/camera_left/image_rect', '/camera_right/image_rect']
         self.left_camera_info_topic = '/camera_left/camera_info'
-        self.depth_topic = '/depth'
+        self.depth_topic = '/depth_right'  # TODO: subscribe to the depth in the left camera coordinate frame when available
 
         self.cv_bridge = CvBridge()
         self._tf_buffer = tf2_ros.Buffer()
@@ -56,7 +53,7 @@ class DepthRefinementNode(Node):
         self.max_age = self.get_parameter('max_age').get_parameter_value().double_value
 
         # depth publisher
-        self.depth_pub = self.create_publisher(Image, f'{self.depth_topic}_refined', 10)
+        self.depth_pub = self.create_publisher(Image, f'/depth_right_refined', 10)
 
     def safe_lookup_transform(self, target_frame, source_frame, time):
         try:
@@ -135,38 +132,49 @@ class DepthRefinementNode(Node):
         self._logger.debug(f'Camera baseline is {self.cams_baseline:.3f} m')
 
         imgL = self.cv_bridge.imgmsg_to_cv2(imgL_msg, desired_encoding='passthrough')
-        depth = self.cv_bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
+        depth_right = self.cv_bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
 
         mean, std = self.normal_mean_var["mean"], self.normal_mean_var["std"]
-        img_in_norm = (imgL / 255. - mean) / std
+        img_in_norm = torch.from_numpy(imgL / 255.).to(self.device)
+        img_in_norm = (img_in_norm - mean) / std
         self._logger.debug(f"Left image shape: {img_in_norm.shape}")
-        # disp_in_norm = disp_in / ds.max_disp
-        # inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
-        # # forward pass
-        # t2 = time()
-        # disp = self.model(inputs)
-        # self._logger.info(f'Inference time: {time() - t2:.3f} ms')
-        # self._logger.debug(f'Predicted disparity shape: {disp.shape}')
-        # disp_np = disp.squeeze().cpu().numpy()
-        #
-        # # convert disparity to depth
-        # focal_length = left_cam_info_msg.k[0]  # assuming fx is the first element in the camera matrix
-        # self._logger.debug(f'Focal length: {focal_length:.3f} pixels')
-        # depth = (self.cams_baseline * focal_length) / (disp_np + 1e-6)  # [m] * [pixels] / [pixels] = [m]
-        # self._logger.info(f'Depth values: {np.min(depth):.3f} m - {np.max(depth):.3f} m')
-        #
-        # # publish depth message
-        # depth_msg = self.cv_bridge.cv2_to_imgmsg(depth, encoding='passthrough')
-        # depth_msg.header = imgL_msg.header
-        # self.depth_pub.publish(depth_msg)
-        #
-        # if self.vis:
-        #     # visualize the depth map with a colormap
-        #     depth_vis = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=255.0 / np.max(depth)), cv2.COLORMAP_JET)
-        #     depth_vis = cv2.cvtColor(depth_vis, cv2.COLOR_BGR2RGB)
-        #     cv2.imshow('PSMNet Depth', depth_vis)
-        #     cv2.waitKey(1)
+        T_left_from_right = torch.eye(4, dtype=torch.float32).to(self.device)
+        T_left_from_right[0, 3] = self.cams_baseline
+        K = torch.as_tensor(left_cam_info_msg.k, dtype=torch.float32).reshape(3, 3).to(self.device)
+        depth_right = torch.as_tensor(depth_right, dtype=torch.float32).to(self.device) / 1000.  # meters
+        disp_in = get_disp_l2r_from_depth_right(depth_right, T_left_from_right, K)
+        self._logger.debug(f"L2R disparity shape: {disp_in.shape}")
+
+        disp_in_norm = disp_in / self.max_disp
+        inputs = torch.cat([img_in_norm.unsqueeze(0).unsqueeze(0),
+                            disp_in_norm.unsqueeze(0).unsqueeze(0)], dim=1).float()
+
+        # forward pass
+        t2 = time()
+        disp_cor = self.model(inputs)
+        disp = disp_in + disp_cor * self.max_disp
+        self._logger.info(f'Inference time: {time() - t2:.3f} ms')
+        self._logger.debug(f'Predicted disparity shape: {disp.shape}')
+        disp_np = disp.squeeze().cpu().numpy()
+
+        # convert disparity to depth
+        focal_length = left_cam_info_msg.k[0]  # assuming fx is the first element in the camera matrix
+        self._logger.debug(f'Focal length: {focal_length:.3f} pixels')
+        depth = (self.cams_baseline * focal_length) / (disp_np + 1e-6)  # [m] * [pixels] / [pixels] = [m]
+        self._logger.info(f'Depth values: {np.min(depth):.3f} m - {np.max(depth):.3f} m')
+
+        # publish depth message
+        depth_msg = self.cv_bridge.cv2_to_imgmsg(depth, encoding='passthrough')
+        depth_msg.header = imgL_msg.header
+        self.depth_pub.publish(depth_msg)
+
+        if self.vis:
+            disp_in_vis = colorize_disp(disp_in.cpu().numpy())
+            cv2.imshow('Input disparity', disp_in_vis)
+            disp_vis = colorize_disp(disp_np)
+            cv2.imshow('Refined disparity', disp_vis)
+            cv2.waitKey(1)
 
 
 def main(args=None):

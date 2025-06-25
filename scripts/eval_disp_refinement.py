@@ -137,12 +137,13 @@ def inference_test(agrs):
     model.eval()
     img_dummy = torch.randn(1, 1, 480, 768).to(device)
     disp_dummy = torch.randn(1, 1, 480, 768).to(device)
+    inputs = torch.cat([img_dummy, disp_dummy], dim=1)
 
     n_iters = 100
     t0 = time()
     for _ in tqdm(range(n_iters)):
         with torch.inference_mode():
-            model(torch.cat([img_dummy, disp_dummy], dim=1))
+            model(inputs)
     t1 = time()
     t_avg = (t1 - t0) / n_iters
     print(f'Average inference time: {t_avg:.4f} seconds per iteration on {device}')
@@ -151,9 +152,9 @@ def inference_test(agrs):
 def main():
     args = parse_args()
 
-    # data_test(args)
+    data_test(args)
     result(args)
-    # inference_test(args)
+    inference_test(args)
 
 
 if __name__ == '__main__':
