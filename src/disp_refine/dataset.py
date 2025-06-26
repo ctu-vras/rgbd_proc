@@ -4,8 +4,16 @@ from glob import glob
 import yaml
 import numpy as np
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, ConcatDataset, random_split
 from tqdm import tqdm
+
+
+data_sequences = [
+    'helhest_2025_06_13-15_01_10',
+    'helhest_2025_06_13-16_00_06',
+]
+pkg_path = os.path.join(os.path.dirname(__file__), '../../')
+data_sequences = [os.path.realpath(os.path.join(pkg_path, 'data/ROUGH/', seq)) for seq in data_sequences]
 
 
 def load_calib(calib_path):
@@ -32,12 +40,23 @@ def load_calib(calib_path):
     return calib
 
 
+def load_img_stats(path):
+    """
+    Load mean and std of grayscale images from a file.
+    :param path: Path to the file containing mean and std values.
+    :return: Tuple (mean_gray, std_gray)
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Image stats file not found: {path}")
+    with open(path, 'r') as f:
+        stats = yaml.safe_load(f)
+    return stats['img_stats']
+
+
 class Data(Dataset):
     """
     A dataset for disparity correction.
     """
-    mean_gray = 0.3611
-    std_gray = 0.2979
 
     def __init__(self, path, max_disp=100.0):
         super(Dataset, self).__init__()
@@ -53,6 +72,9 @@ class Data(Dataset):
         }
         self.calib_path = os.path.join(path, 'calibration')
         self.calib = load_calib(calib_path=self.calib_path)
+        img_stats = load_img_stats(os.path.join(pkg_path, 'config', 'dataset.yaml'))
+        self.mean_gray = img_stats['gray']['mean']
+        self.std_gray = img_stats['gray']['std']
         self.ids = self.get_ids()
 
     def __getitem__(self, i):
@@ -83,25 +105,6 @@ class Data(Dataset):
         ind = self.ids[i]
         stamp = float(ind.replace('_', '.'))
         return stamp
-
-    def calculate_img_stats(self):
-        """
-        Calculate mean and standard deviation of grayscale images in the dataset.
-        """
-        mean_gray = 0.0
-        std_gray = 0.0
-        n_pixels = 0
-        for i in tqdm(range(len(self)), desc='Calculating image stats'):
-            gray = self.get_image(i)
-            gray = gray / 255.0  # normalize to 0-1 if needed
-            mean_gray += gray.sum().item()
-            std_gray += (gray ** 2).sum().item()
-            n_pixels += gray.size
-        mean_gray /= n_pixels
-        std_gray = (std_gray / n_pixels - mean_gray ** 2) ** 0.5
-        self.mean_gray = mean_gray
-        self.std_gray = std_gray
-        print(f'Mean gray: {self.mean_gray:.4f}, Std gray: {self.std_gray:.4f}')
 
     def get_image(self, i, camera='left'):
         img_path = self.image_files[camera][i]
@@ -145,3 +148,40 @@ class Data(Dataset):
         disp_input = self.get_disp(i, source='luxonis')  # l2r
         disp_label = self.get_disp(i, source='defom-stereo')  # l2r
         return img[np.newaxis], disp_input[np.newaxis], disp_label[np.newaxis]
+
+
+def calculate_img_stats(img_paths):
+    """
+    Calculate mean and standard deviation of grayscale images in the dataset.
+    """
+    mean_gray = 0.0
+    std_gray = 0.0
+    n_pixels = 0
+    for img_path in tqdm(img_paths, desc='Calculating image stats'):
+        gray = Image.open(img_path)
+        gray = np.array(gray)
+        gray = gray / 255.0  # normalize to 0-1 if needed
+        mean_gray += gray.sum().item()
+        std_gray += (gray ** 2).sum().item()
+        n_pixels += gray.size
+    mean_gray /= n_pixels
+    std_gray = (std_gray / n_pixels - mean_gray ** 2) ** 0.5
+    print(f'Mean gray: {mean_gray:.4f}, Std gray: {std_gray:.4f}')
+    return mean_gray, std_gray
+
+
+def compile_data(data_paths):
+    """
+    Compile multiple datasets into one.
+    :param data_paths: List of dataset paths
+    :return: Concatenated dataset
+    """
+    datasets = [Data(path) for path in data_paths]
+    compiled_dataset = ConcatDataset(datasets)
+    # train / val split
+    n_samples = len(compiled_dataset)
+    n_train = int(0.8 * n_samples)
+    n_val = n_samples - n_train
+    train_dataset, val_dataset = random_split(compiled_dataset, [n_train, n_val])
+    print(f'Train dataset size: {len(train_dataset)}, Val dataset size: {len(val_dataset)}')
+    return train_dataset, val_dataset

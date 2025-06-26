@@ -1,6 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src/'))
+from glob import glob
 from datetime import datetime
 import numpy as np
 from tqdm import tqdm
@@ -8,16 +9,13 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from disp_refine.dataset import Data
+from disp_refine.dataset import compile_data, data_sequences, calculate_img_stats, load_img_stats
 from disp_refine.linknet import DispRef
 from disp_refine.vis import colorize_img
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Disparity Correction Training')
-    parser.add_argument('--dataset_path', type=str,
-                        default='../data/ROUGH/helhest_2025_06_13-15_01_10',
-                        help='Path to the dataset')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
                         help='Device to use for training (cuda or cpu)')
     parser.add_argument('--bs', type=int, default=8, help='Batch size for training')
@@ -28,16 +26,33 @@ def parse_args():
     return parser.parse_args()
 
 
+def compute_img_stats():
+    img_paths = []
+    for seq in data_sequences:
+        img_paths.extend(glob(os.path.join(seq, 'images', 'left', '*.png')))
+    mean, std = calculate_img_stats(img_paths)
+    return mean, std
+
+
+def read_img_stats():
+    pkg_path = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
+    img_stats = load_img_stats(os.path.join(pkg_path, 'config', 'dataset.yaml'))
+    return img_stats
+
+
 def train(args):
-    dataset_path = args.dataset_path
     device = args.device
     bs = args.bs
     lr = args.lr
     nepochs = args.nepochs
 
-    ds = Data(dataset_path)
-    ds.calculate_img_stats()
-    loader = DataLoader(ds, batch_size=bs, shuffle=True)
+    train_ds, val_ds = compile_data(data_sequences)
+    # mean_gray, std_gray = compute_img_stats()
+    img_stats = read_img_stats()
+    mean_gray = img_stats['gray']['mean']
+    std_gray = img_stats['gray']['std']
+    max_disp = img_stats['max_disparity']
+    loader = DataLoader(train_ds, batch_size=bs, shuffle=True)
 
     model = DispRef()
     if args.pretrained_weights:
@@ -56,19 +71,19 @@ def train(args):
     for epoch in range(nepochs):
         model.train()
         loss_epoch = 0
-        for img_in, disp_in, disp_gt in tqdm(loader):
+        for img_in, disp_in, disp_gt in tqdm(loader, desc=f'Epoch {epoch + 1}/{nepochs}', unit='batch'):
             img_in = img_in.to(device)
             disp_in = disp_in.float().to(device)
             disp_gt = disp_gt.float().to(device)
 
             # normalize inputs
-            img_in_norm = (img_in/255. - ds.mean_gray) / ds.std_gray
-            disp_in_norm = disp_in / ds.max_disp
+            img_in_norm = (img_in / 255. - mean_gray) / std_gray
+            disp_in_norm = disp_in / max_disp
             inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
             optimizer.zero_grad()
             disp_corr = model(inputs)
-            disp_pred = disp_in + disp_corr * ds.max_disp
+            disp_pred = disp_in + disp_corr * max_disp
 
             mask_nan = torch.isnan(disp_gt)
             mask_valid = torch.ones_like(disp_gt, dtype=torch.bool)
@@ -100,16 +115,16 @@ def train(args):
                 disp_in = disp_in.float().to(device)
 
                 # normalize inputs
-                img_in_norm = (img_in / 255. - ds.mean_gray) / ds.std_gray
-                disp_in_norm = disp_in / ds.max_disp
+                img_in_norm = (img_in / 255. - mean_gray) / std_gray
+                disp_in_norm = disp_in / max_disp
                 inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
                 disp_corr = model(inputs)
-                disp_pred = disp_in + disp_corr * ds.max_disp
+                disp_pred = disp_in + disp_corr * max_disp
 
                 # log input and output images to TensorBoard
                 img_in = img_in.cpu().numpy()[0][0]
-                max_disp = min(disp_in.max(), disp_gt.max(), disp_pred.max())
+                # max_disp_vis = min(disp_in.max(), disp_gt.max(), disp_pred.max())
                 disp_err = colorize_img((disp_gt - disp_pred.cpu())[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
                 disp_in = colorize_img(disp_in.cpu()[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
                 disp_gt = colorize_img(disp_gt.cpu()[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
