@@ -79,12 +79,12 @@ class DataProcessor(Node):
         self.robot_frame = self.get_parameter('robot_frame').get_parameter_value().string_value
 
         self.output_path = self.get_parameter('output_path').get_parameter_value().string_value
-        self.cloud_path = os.path.join(self.output_path, 'clouds')
+        self.cloud_path = os.path.join(self.output_path, 'luxonis', 'clouds')
         os.makedirs(self.cloud_path, exist_ok=True)
         self.img_path = os.path.join(self.output_path, 'images')
         os.makedirs(os.path.join(self.img_path, 'left'), exist_ok=True)
         os.makedirs(os.path.join(self.img_path, 'right'), exist_ok=True)
-        self.depth_path = os.path.join(self.output_path, 'depth')
+        self.depth_path = os.path.join(self.output_path, 'luxonis', 'depth')
         os.makedirs(self.depth_path, exist_ok=True)
         self.calib_path = os.path.join(self.output_path, 'calibration')
         os.makedirs(self.calib_path, exist_ok=True)
