@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from disp_refine.dataset import Data
 from disp_refine.linknet import DispRef
-from disp_refine.vis import colorize_disp
+from disp_refine.vis import colorize_img
 
 
 def parse_args():
@@ -103,10 +103,10 @@ def train(args):
 
                 # log input and output images to TensorBoard
                 img_in = img_in.cpu().numpy()[0][0]
-                disp_err = colorize_disp((disp_gt - disp_pred.cpu())[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_in = colorize_disp(disp_in.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_gt = colorize_disp(disp_gt.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_pred = colorize_disp(disp_pred.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
+                disp_err = colorize_img((disp_gt - disp_pred.cpu())[0][0].numpy())[..., ::-1]  # BGR -> RGB
+                disp_in = colorize_img(disp_in.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
+                disp_gt = colorize_img(disp_gt.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
+                disp_pred = colorize_img(disp_pred.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
 
                 tb_logger.add_image('Input Image', img_in, epoch, dataformats='HW')
                 tb_logger.add_image('Input Disparity', disp_in, epoch, dataformats='HWC')

@@ -6,7 +6,7 @@ import torch
 from time import time
 from disp_refine.linknet import DispRef
 from disp_refine.utils import get_disp_l2r_from_depth_right
-from disp_refine.vis import colorize_disp
+from disp_refine.vis import colorize_img
 
 import rclpy
 import rclpy.time
@@ -53,7 +53,7 @@ class DepthRefinementNode(Node):
         self.max_age = self.get_parameter('max_age').get_parameter_value().double_value
 
         # depth publisher
-        self.depth_pub = self.create_publisher(Image, f'/depth_right_refined', 10)
+        self.depth_pub = self.create_publisher(Image, f'/depth_left_refined', 10)
 
     def safe_lookup_transform(self, target_frame, source_frame, time):
         try:
@@ -157,12 +157,15 @@ class DepthRefinementNode(Node):
         self._logger.info(f'Inference time: {time() - t2:.3f} ms')
         self._logger.debug(f'Predicted disparity shape: {disp.shape}')
         disp_np = disp.squeeze().cpu().numpy()
+        self._logger.info(f'Disp values: {np.min(disp_np):.3f}, .., {np.max(disp_np):.3f}')
 
         # convert disparity to depth
         focal_length = left_cam_info_msg.k[0]  # assuming fx is the first element in the camera matrix
         self._logger.debug(f'Focal length: {focal_length:.3f} pixels')
-        depth = (self.cams_baseline * focal_length) / (disp_np + 1e-6)  # [m] * [pixels] / [pixels] = [m]
-        self._logger.info(f'Depth values: {np.min(depth):.3f} m - {np.max(depth):.3f} m')
+        depth = np.zeros_like(disp_np)
+        valid = disp_np > 2.  # valid disparity values
+        depth[valid] = (self.cams_baseline * focal_length) / disp_np[valid]  # [m] * [pixels] / [pixels] = [m]
+        self._logger.info(f'Depth values: {np.min(depth):.3f} m, .., {np.max(depth):.3f} m')
 
         # publish depth message
         depth_msg = self.cv_bridge.cv2_to_imgmsg(depth, encoding='passthrough')
@@ -170,10 +173,12 @@ class DepthRefinementNode(Node):
         self.depth_pub.publish(depth_msg)
 
         if self.vis:
-            disp_in_vis = colorize_disp(disp_in.cpu().numpy())
+            disp_in_vis = colorize_img(disp_in.cpu().numpy())
             cv2.imshow('Input disparity', disp_in_vis)
-            disp_vis = colorize_disp(disp_np)
+            disp_vis = colorize_img(disp_np)
             cv2.imshow('Refined disparity', disp_vis)
+            depth_vis = colorize_img(depth)
+            cv2.imshow('Refined depth', depth_vis)
             cv2.waitKey(1)
 
 

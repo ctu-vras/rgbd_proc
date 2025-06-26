@@ -5,7 +5,7 @@ import argparse
 import torch
 from disp_refine.dataset import Data
 from disp_refine.linknet import DispRef
-from disp_refine.vis import colorize_disp
+from disp_refine.vis import colorize_img
 
 
 def parse_args():
@@ -32,10 +32,10 @@ def data_test(args):
 
     cv2.imshow('img', img[0])
 
-    disp_colored = colorize_disp(disp_in[0], max_disp=max_disp)
+    disp_colored = colorize_img(disp_in[0], max_val=max_disp)
     cv2.imshow("Disp Input", disp_colored)
 
-    disp_colored_label = colorize_disp(disp_gt[0], max_disp=max_disp)
+    disp_colored_label = colorize_img(disp_gt[0], max_val=max_disp)
     cv2.imshow("Disp Label", disp_colored_label)
 
     # mask_nan = ~np.isnan(disp_gt)
@@ -83,13 +83,13 @@ def result(args):
         disp_gt = disp_gt.cpu().numpy()[0][0]
         disp_in = disp_in.cpu().numpy()[0][0]
 
-        disp_in_colored = colorize_disp(disp_in, max_disp=ds.max_disp)
+        disp_in_colored = colorize_img(disp_in, max_val=ds.max_disp)
         cv2.imshow("Disparity Input", disp_in_colored)
 
-        disp_colored = colorize_disp(disp_pred, max_disp=ds.max_disp)
+        disp_colored = colorize_img(disp_pred, max_val=ds.max_disp)
         cv2.imshow("Disparity Prediction", disp_colored)
 
-        disp_colored_gt = colorize_disp(disp_gt, max_disp=ds.max_disp)
+        disp_colored_gt = colorize_img(disp_gt, max_val=ds.max_disp)
         cv2.imshow("Disparity Ground Truth", disp_colored_gt)
 
         cv2.waitKey(0)

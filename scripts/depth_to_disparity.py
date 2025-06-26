@@ -8,7 +8,7 @@ import open3d as o3d
 import torch
 
 from disp_refine.utils import get_disp_l2r_from_depth_right, get_cloud_from_depth
-from disp_refine.vis import colorize_disp
+from disp_refine.vis import colorize_img
 
 
 def main():

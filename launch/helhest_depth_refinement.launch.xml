@@ -14,12 +14,25 @@
     <param name="device" value="cuda" />
     <param name="max_msgs_delay" value="0.05" />
     <param name="max_age" value="0.5" />
-    <param name="vis" value="false" />
+    <param name="vis" value="true" />
 
     <remap from="/camera_left/image_rect" to="/luxonis/oak/left/image_rect" />
     <remap from="/camera_left/camera_info" to="/luxonis/oak/left/camera_info" />
     <remap from="/camera_right/image_rect" to="/luxonis/oak/right/image_rect" />
     <remap from="/depth_right" to="/luxonis/oak/stereo/image_raw/depth" />
+    <remap from="/depth_left_refined" to="/depth_left_refined" />
+  </node>
+
+  <!-- Publish point cloud from depth image -->
+  <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node" output="screen">
+    <remap from="depth_registered/image_rect" to="/depth_left_refined" />
+    <remap from="rgb/image_rect_color" to="/luxonis/oak/left/image_rect" />
+    <remap from="rgb/camera_info" to="/luxonis/oak/left/camera_info" />
+    <remap from="points" to="/points" />
+
+    <param name="approximate_sync" value="true" />
+    <param name="queue_size" value="10" />
+    <param name="output_frame" value="camera_front" />
   </node>
 
   <!-- RVIZ2 -->
