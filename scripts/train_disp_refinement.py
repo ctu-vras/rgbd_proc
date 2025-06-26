@@ -1,4 +1,6 @@
+import sys
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../src/'))
 from datetime import datetime
 import numpy as np
 from tqdm import tqdm
@@ -22,6 +24,8 @@ def parse_args():
     parser.add_argument('--bs', type=int, default=8, help='Batch size for training')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for the optimizer')
     parser.add_argument('--nepochs', type=int, default=100, help='Number of epochs for training')
+    parser.add_argument('--pretrained_weights', type=str, default=None,
+                        help='Path to the pretrained weights for the model (optional)')
     return parser.parse_args()
 
 
@@ -33,10 +37,13 @@ def train(args):
     nepochs = args.nepochs
 
     ds = Data(dataset_path)
-    # ds.calculate_img_stats()
+    ds.calculate_img_stats()
     loader = DataLoader(ds, batch_size=bs, shuffle=True)
 
     model = DispRef()
+    if args.pretrained_weights:
+        print(f'Loading pretrained weights from {args.pretrained_weights}')
+        model.load_state_dict(torch.load(args.pretrained_weights, map_location=device))
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -103,10 +110,11 @@ def train(args):
 
                 # log input and output images to TensorBoard
                 img_in = img_in.cpu().numpy()[0][0]
-                disp_err = colorize_img((disp_gt - disp_pred.cpu())[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_in = colorize_img(disp_in.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_gt = colorize_img(disp_gt.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
-                disp_pred = colorize_img(disp_pred.cpu()[0][0].numpy())[..., ::-1]  # BGR -> RGB
+                max_disp = min(disp_in.max(), disp_gt.max(), disp_pred.max())
+                disp_err = colorize_img((disp_gt - disp_pred.cpu())[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
+                disp_in = colorize_img(disp_in.cpu()[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
+                disp_gt = colorize_img(disp_gt.cpu()[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
+                disp_pred = colorize_img(disp_pred.cpu()[0][0].numpy(), max_val=max_disp)[..., ::-1]  # BGR -> RGB
 
                 tb_logger.add_image('Input Image', img_in, epoch, dataformats='HW')
                 tb_logger.add_image('Input Disparity', disp_in, epoch, dataformats='HWC')

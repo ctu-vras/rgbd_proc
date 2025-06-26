@@ -9,15 +9,15 @@ from disp_refine.vis import colorize_img
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Disparity Correction Training')
+    parser = argparse.ArgumentParser(description='Disparity Correction Evaluation')
     parser.add_argument('--dataset_path', type=str,
                         default='../data/ROUGH/helhest_2025_06_13-15_01_10',
                         help='Path to the dataset')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
-                        help='Device to use for training (cuda or cpu)')
-    parser.add_argument('--bs', type=int, default=8, help='Batch size for training')
+                        help='Device to use for evaluation (cuda or cpu)')
+    parser.add_argument('--bs', type=int, default=8, help='Batch size for evaluation')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for the optimizer')
-    parser.add_argument('--nepochs', type=int, default=100, help='Number of epochs for training')
+    parser.add_argument('--nepochs', type=int, default=100, help='Number of epochs for evaluation')
     return parser.parse_args()
 
 

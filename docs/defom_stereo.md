@@ -20,5 +20,5 @@ pip install -r requirements.txt
 
 ```
 cd rgbd_proc/scripts/defom_stereo
-python generate_disparity_labels.py -l "/path/to/images/left/*.png" -r "/path/to/images/right/*.png" --output_directory /path/to/save/disparity/ --restore_ckpt checkpoints/defomstereo_vitl_kitti.pth
+python generate_disparity_labels.py -l "/path/to/images/left/*.png" -r "/path/to/images/right/*.png" --output_directory /path/to/save/disparity/ --restore_ckpt checkpoints/defomstereo_vitl_kitti.pth --save_numpy
 ```
