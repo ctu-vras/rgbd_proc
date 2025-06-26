@@ -8,8 +8,14 @@ from torch.utils.data import Dataset, ConcatDataset, random_split
 from tqdm import tqdm
 from torchvision import transforms
 
+
 data_sequences = [
     'helhest_2025_06_13-15_01_10',
+    'helhest_2025_06_13-15_17_51',
+    'helhest_2025_06_13-15_22_21',
+    'helhest_2025_06_13-15_32_18',
+    'helhest_2025_06_13-15_39_09',
+    'helhest_2025_06_13-15_43_47',
     'helhest_2025_06_13-16_00_06',
 ]
 pkg_path = os.path.join(os.path.dirname(__file__), '../../')

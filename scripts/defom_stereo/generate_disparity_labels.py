@@ -1,6 +1,6 @@
 import sys
 sys.path.append('core')
-
+import os
 import argparse
 import glob
 import numpy as np
@@ -32,7 +32,8 @@ def main(args):
     model.eval()
 
     output_directory = Path(args.output_directory)
-    output_directory.mkdir(exist_ok=True)
+    # output_directory.mkdir(exist_ok=True)
+    os.makedirs(output_directory, exist_ok=True)
 
     with torch.no_grad():
         left_images = sorted(glob.glob(args.left_imgs, recursive=True))

@@ -14,7 +14,7 @@
     <arg name="right_namespace" value="/luxonis/oak/right" />
     <arg name="weights" value="$(var weights)" />
     <arg name="device" value="cpu" />
-    <arg name="vis" value="false" />
+    <arg name="vis" value="true" />
   </include>
 
   <!-- RVIZ2 -->

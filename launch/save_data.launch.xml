@@ -10,6 +10,7 @@
   <!-- Play bag file -->
   <include file="$(find-pkg-share dataproc)/launch/helhest_play.launch.py">
     <arg name="bag_path" value="$(var bag_path)" />
+    <arg name="rviz" value="$(var rviz)" />
   </include>
 
   <!-- Decompress LEFT image -->
@@ -60,10 +61,7 @@
 
     <param name="period" value="1.0" />
     <param name="output_path" value="$(var output_path)" />
+    <param name="save_calibration" value="true" />
   </node>
-
-  <!-- RVIZ2 -->
-  <node if="$(var rviz)" pkg="rviz2" exec="rviz2" name="rviz2"
-      args="-d $(find-pkg-share rgbd_proc)/config/rviz/data.rviz"/>
 
 </launch>

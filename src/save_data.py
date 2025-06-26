@@ -69,6 +69,7 @@ class DataProcessor(Node):
         self.declare_parameter('period', 1.0)
         self.declare_parameter('output_path', './')
         self.declare_parameter('robot_frame', 'base_link')
+        self.declare_parameter('save_calibration', True)
 
         self.img_topics = self.get_parameter('img_topics').get_parameter_value().string_array_value
         self.camera_info_topics = self.get_parameter('camera_info_topics').get_parameter_value().string_array_value
@@ -92,7 +93,7 @@ class DataProcessor(Node):
         self.cv_bridge = CvBridge()
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-        self.saved_calibration = False
+        self.saved_calibration = not self.get_parameter('save_calibration').get_parameter_value().bool_value
         self.prev_time = self.get_clock().now()
 
     def get_transform(self, from_frame, to_frame, time=None):
