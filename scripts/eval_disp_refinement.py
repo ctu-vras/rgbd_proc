@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import argparse
 import torch
-from disp_refine.dataset import Data
+from disp_refine.dataset import Data, load_img_stats
 from disp_refine.linknet import DispRef
 from disp_refine.vis import colorize_img
 
@@ -28,14 +28,14 @@ def data_test(args):
 
     i = 150
     img, disp_in, disp_gt = ds[i]
-    max_disp = min(disp_in.max(), disp_gt.max())
+    max_disp = float(min(disp_in.max(), disp_gt.max()))
 
-    cv2.imshow('img', img[0])
+    cv2.imshow('img', img[0].numpy())
 
-    disp_colored = colorize_img(disp_in[0], max_val=max_disp)
+    disp_colored = colorize_img(disp_in[0].numpy(), max_val=max_disp)
     cv2.imshow("Disp Input", disp_colored)
 
-    disp_colored_label = colorize_img(disp_gt[0], max_val=max_disp)
+    disp_colored_label = colorize_img(disp_gt[0].numpy(), max_val=max_disp)
     cv2.imshow("Disp Label", disp_colored_label)
 
     # mask_nan = ~np.isnan(disp_gt)
@@ -54,7 +54,10 @@ def result(args):
     device = args.device
 
     ds = Data(dataset_path)
-    # ds.calculate_img_stats()
+    img_stats = load_img_stats()
+    mean_gray = img_stats['gray']['mean']
+    std_gray = img_stats['gray']['std']
+    max_disp = img_stats['max_disparity']
 
     model = DispRef()
     model_path = '../config/weights/disp_refine/model.pth'
@@ -65,31 +68,31 @@ def result(args):
     with torch.no_grad():
         i = 0
         sample = ds[i]
-        batch = [torch.from_numpy(s)[np.newaxis] for s in sample]
+        batch = [s[np.newaxis] for s in sample]
         img_in, disp_in, disp_gt = batch
         img_in = img_in.to(device)
         disp_in = disp_in.float().to(device)
 
         # normalize input images
-        img_in_norm = (img_in / 255. - ds.mean_gray) / ds.std_gray
-        disp_in_norm = disp_in / ds.max_disp
+        img_in_norm = (img_in - mean_gray) / std_gray
+        disp_in_norm = disp_in / max_disp
         inputs = torch.cat([img_in_norm, disp_in_norm], dim=1)
 
         disp_corr = model(inputs)
-        disp_pred = disp_in + disp_corr * ds.max_disp
+        disp_pred = disp_in + disp_corr * max_disp
 
         # visualize colored disparities
         disp_pred = disp_pred.cpu().numpy()[0][0]
         disp_gt = disp_gt.cpu().numpy()[0][0]
         disp_in = disp_in.cpu().numpy()[0][0]
 
-        disp_in_colored = colorize_img(disp_in, max_val=ds.max_disp)
+        disp_in_colored = colorize_img(disp_in, max_val=max_disp)
         cv2.imshow("Disparity Input", disp_in_colored)
 
-        disp_colored = colorize_img(disp_pred, max_val=ds.max_disp)
+        disp_colored = colorize_img(disp_pred, max_val=max_disp)
         cv2.imshow("Disparity Prediction", disp_colored)
 
-        disp_colored_gt = colorize_img(disp_gt, max_val=ds.max_disp)
+        disp_colored_gt = colorize_img(disp_gt, max_val=max_disp)
         cv2.imshow("Disparity Ground Truth", disp_colored_gt)
 
         cv2.waitKey(0)
@@ -100,9 +103,9 @@ def result(args):
         points_gt = ds.disp_to_cloud(disp_gt)
         points_in = ds.disp_to_cloud(disp_in)
 
-        valid_mask = (disp_pred > 2) & (disp_pred < ds.max_disp) &\
-                     (disp_gt > 2) & (disp_gt < ds.max_disp) & \
-                     (disp_in > 2) & (disp_in < ds.max_disp)
+        valid_mask = (disp_pred > 2) & (disp_pred < max_disp) &\
+                     (disp_gt > 2) & (disp_gt < max_disp) & \
+                     (disp_in > 2) & (disp_in < max_disp)
 
         points = points[valid_mask.flatten()]
         points_gt = points_gt[valid_mask.flatten()]

@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset, ConcatDataset, random_split
 from tqdm import tqdm
-
+from torchvision import transforms
 
 data_sequences = [
     'helhest_2025_06_13-15_01_10',
@@ -40,12 +40,13 @@ def load_calib(calib_path):
     return calib
 
 
-def load_img_stats(path):
+def load_img_stats():
     """
     Load mean and std of grayscale images from a file.
     :param path: Path to the file containing mean and std values.
     :return: Tuple (mean_gray, std_gray)
     """
+    path = os.path.join(pkg_path, 'config', 'dataset.yaml')
     if not os.path.exists(path):
         raise FileNotFoundError(f"Image stats file not found: {path}")
     with open(path, 'r') as f:
@@ -53,15 +54,18 @@ def load_img_stats(path):
     return stats['img_stats']
 
 
+transforms = transforms.Compose([
+    transforms.ToTensor(),
+])
+
 class Data(Dataset):
     """
     A dataset for disparity correction.
     """
 
-    def __init__(self, path, max_disp=100.0):
+    def __init__(self, path):
         super(Dataset, self).__init__()
         self.path = path
-        self.max_disp = max_disp
         self.image_files = {
             'left': sorted(glob(os.path.join(path, 'images', 'left', '*.png'))),
             'right': sorted(glob(os.path.join(path, 'images', 'right', '*.png'))),
@@ -72,9 +76,10 @@ class Data(Dataset):
         }
         self.calib_path = os.path.join(path, 'calibration')
         self.calib = load_calib(calib_path=self.calib_path)
-        img_stats = load_img_stats(os.path.join(pkg_path, 'config', 'dataset.yaml'))
+        img_stats = load_img_stats()
         self.mean_gray = img_stats['gray']['mean']
         self.std_gray = img_stats['gray']['std']
+        self.max_disp = img_stats['max_disparity']
         self.ids = self.get_ids()
 
     def __getitem__(self, i):
@@ -109,12 +114,12 @@ class Data(Dataset):
     def get_image(self, i, camera='left'):
         img_path = self.image_files[camera][i]
         img = Image.open(img_path)
-        img = np.array(img)
         return img
 
     def get_disp(self, i, source='luxonis'):
         disp_path = self.disp_files[source][i]
         disp = np.load(disp_path)
+        disp = Image.fromarray(disp)
         return disp
 
     def disp_to_cloud(self, disp):
@@ -147,7 +152,11 @@ class Data(Dataset):
         img = self.get_image(i, camera='left')
         disp_input = self.get_disp(i, source='luxonis')  # l2r
         disp_label = self.get_disp(i, source='defom-stereo')  # l2r
-        return img[np.newaxis], disp_input[np.newaxis], disp_label[np.newaxis]
+        # apply transforms
+        img = transforms(img)
+        disp_input = transforms(disp_input)
+        disp_label = transforms(disp_label)
+        return img, disp_input, disp_label
 
 
 def calculate_img_stats(img_paths):
