@@ -8,7 +8,6 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
 from disp_refine.dataset import Data
 from disp_refine.linknet import DispRef
 from disp_refine.vis import colorize_img

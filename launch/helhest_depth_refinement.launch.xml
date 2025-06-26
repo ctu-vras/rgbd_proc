@@ -9,46 +9,13 @@
   </include>
 
   <!-- Depth refinement node -->
-  <node pkg="rgbd_proc" exec="depth_refinement.py" name="depth_refinement" output="screen">
-    <param name="weights" value="$(var weights)" />
-    <param name="device" value="cpu" />
-    <param name="max_msgs_delay" value="0.05" />
-    <param name="max_age" value="0.5" />
-    <param name="vis" value="false" />
-
-    <remap from="/camera_left/image_rect" to="/luxonis/oak/left/image_rect" />
-    <remap from="/camera_left/camera_info" to="/luxonis/oak/left/camera_info" />
-    <remap from="/camera_right/image_rect" to="/luxonis/oak/right/image_rect" />
-    <remap from="/depth_right" to="/luxonis/oak/stereo/image_raw/depth" />
-    <remap from="/depth_left_refined" to="/depth_left_refined" />
-  </node>
-
-  <!-- Depth filtering -->
-  <node pkg="rgbd_proc" exec="depth_filter.py" name="depth_filter" output="screen">
-    <param name="fov_filter.enabled" value="true" />
-    <param name="fov_filter.min_angle" value="-15.0" />
-    <param name="fov_filter.max_angle" value="15.0" />
-
-    <param name="median_filter.enabled" value="true" />
-    <param name="median_filter.kernel_size" value="5" />
-
-    <remap from="/depth" to="/depth_left_refined" />
-    <remap from="/camera_info" to="/luxonis/oak/stereo/camera_info" />
-    <remap from="/filtered_depth" to="/depth_left_refined_filtered" />
-  </node>
-
-  <!-- Publish point cloud from depth image -->
-  <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node" output="screen">
-<!--    <remap from="depth_registered/image_rect" to="/depth_left_refined" />-->
-    <remap from="depth_registered/image_rect" to="/depth_left_refined_filtered" />
-    <remap from="rgb/image_rect_color" to="/luxonis/oak/left/image_rect" />
-    <remap from="rgb/camera_info" to="/luxonis/oak/left/camera_info" />
-    <remap from="points" to="/points" />
-
-    <param name="approximate_sync" value="true" />
-    <param name="queue_size" value="10" />
-    <param name="output_frame" value="camera_front" />
-  </node>
+  <include file="$(find-pkg-share rgbd_proc)/launch/depth_refinement.launch.xml">
+    <arg name="left_namespace" value="/luxonis/oak/left" />
+    <arg name="right_namespace" value="/luxonis/oak/right" />
+    <arg name="weights" value="$(var weights)" />
+    <arg name="device" value="cpu" />
+    <arg name="vis" value="false" />
+  </include>
 
   <!-- RVIZ2 -->
   <node if="1" pkg="rviz2" exec="rviz2" name="rviz2"
