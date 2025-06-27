@@ -16,7 +16,7 @@ from disp_refine.vis import colorize_img
 def parse_args():
     parser = argparse.ArgumentParser(description='Disparity Correction Training')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
-    parser.add_argument('--bs', type=int, default=8, help='Batch size')
+    parser.add_argument('--bs', type=int, default=4, help='Batch size')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--nepochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--pretrained_weights', type=str, default=None, help='Path to pretrained model (optional)')

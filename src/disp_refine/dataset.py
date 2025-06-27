@@ -16,10 +16,14 @@ data_sequences = [
     'helhest_2025_06_13-15_32_18',
     'helhest_2025_06_13-15_39_09',
     'helhest_2025_06_13-15_43_47',
+    'helhest_2025_06_13-15_50_46',
     'helhest_2025_06_13-16_00_06',
+    'helhest_2025_06_13-16_32_21',
+    'helhest_2025_06_13-16_33_53',
+    'helhest_2025_06_13-17_07_22',
 ]
 pkg_path = os.path.join(os.path.dirname(__file__), '../../')
-data_sequences = [os.path.realpath(os.path.join(pkg_path, 'data/ROUGH/', seq)) for seq in data_sequences]
+data_sequences = [os.path.realpath(os.path.join(pkg_path, 'data/Helhest/', seq)) for seq in data_sequences]
 
 
 def load_calib(calib_path):

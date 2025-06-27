@@ -8,7 +8,7 @@
   <arg name="rviz" default="false" />
 
   <!-- Play bag file -->
-  <include file="$(find-pkg-share dataproc)/launch/helhest_play.launch.py">
+  <include file="$(find-pkg-share rgbd_proc)/launch/helhest_play.launch.py">
     <arg name="bag_path" value="$(var bag_path)" />
     <arg name="rviz" value="$(var rviz)" />
   </include>
@@ -61,7 +61,7 @@
 
     <param name="period" value="1.0" />
     <param name="output_path" value="$(var output_path)" />
-    <param name="save_calibration" value="true" />
+    <param name="save_calibration" value="false" />
   </node>
 
 </launch>
