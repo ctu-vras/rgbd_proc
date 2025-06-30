@@ -86,6 +86,11 @@ class DepthRefinementNode(Node):
             model.load_state_dict(state_dict)
         model.to(self.device)
         model.eval()
+        # optimize the model for inference
+        if self.device.type == 'cpu':
+            dummpy_input = torch.zeros((1, 2, 480, 768), dtype=torch.float32).to(self.device)
+            model = torch.jit.trace(model, dummpy_input)
+            self._logger.info('Model traced for CPU inference')
         return model
 
     def spin(self):

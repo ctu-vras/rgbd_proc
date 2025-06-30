@@ -60,7 +60,8 @@ def result(args):
     max_disp = img_stats['max_disparity']
 
     model = DispRef()
-    model_path = '../config/weights/disp_refine/model.pth'
+    # model_path = '../config/weights/disp_refine/model.pth'
+    model_path = '../config/weights/disp_refine/linknet_resnet18_encoder_depth_3.pth'
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     model.to(device)

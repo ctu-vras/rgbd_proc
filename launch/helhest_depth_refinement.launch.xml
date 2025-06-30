@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-  <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/disp_refine/model.pth" />
+  <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/disp_refine/linknet_resnet18_encoder_depth_3.pth" />
   <arg name="bag_path" default="$(find-pkg-share rgbd_proc)/data/bags/helhest/helhest_2025_04_29-16_10_48/" />
 
   <!-- Play bag file -->
-  <include file="$(find-pkg-share rgbd_proc)/launch/helhest_play.launch.py">
+  <include file="$(find-pkg-share rgbd_proc)/launch/helhest_play_depth.launch.py">
     <arg name="bag_path" value="$(var bag_path)" />
   </include>
 
@@ -14,7 +14,7 @@
     <arg name="right_namespace" value="/luxonis/oak/right" />
     <arg name="weights" value="$(var weights)" />
     <arg name="device" value="cpu" />
-    <arg name="vis" value="true" />
+    <arg name="vis" value="false" />
   </include>
 
   <!-- RVIZ2 -->
