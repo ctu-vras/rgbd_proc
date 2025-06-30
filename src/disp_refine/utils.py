@@ -3,6 +3,27 @@ import open3d as o3d
 import torch
 
 
+def get_disp_from_depth(depth, T_left_from_right, K):
+    """
+    Compute disparity from a depth map referenced to the left camera frame.
+
+    Args:
+        depth (torch.Tensor): (H, W) depth map in meters, dtype=torch.float32
+        T_left_from_right (torch.Tensor): (4, 4) transform from right to left camera
+        K (torch.Tensor): (3, 3) camera intrinsics
+
+    Returns:
+        disp (torch.Tensor): (H, W) disparity map, dtype=torch.float32
+    """
+    f = K[0, 0]  # focal length in pixels
+    B = torch.norm(T_left_from_right[:3, 3])  # baseline in meters
+
+    eps = 1e-6  # to avoid division by zero
+    disparity = (f * B) / (depth + eps)
+    disparity[depth <= 0] = 0  # invalidate zero or negative depth
+    return disparity
+
+
 def get_disp_l2r_from_depth_right(depth_right, T_left_from_right, K):
     """
     Compute left-to-right disparity from a depth map referenced to the right camera frame.

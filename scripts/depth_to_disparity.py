@@ -9,7 +9,7 @@ from glob import glob
 import open3d as o3d
 import torch
 import argparse
-from disp_refine.utils import get_disp_l2r_from_depth_right, get_cloud_from_depth
+from disp_refine.utils import get_disp_l2r_from_depth_right, get_cloud_from_depth, get_disp_from_depth
 from disp_refine.vis import colorize_img
 
 
@@ -50,11 +50,12 @@ def main():
 
     os.makedirs(os.path.join(seq_path, 'luxonis', 'disparity'), exist_ok=True)
     for i in tqdm(range(len(depth_files))):
-        depth_right = cv2.imread(depth_files[i], cv2.IMREAD_UNCHANGED) / 1000.0  # convert mm to m
-        depth_right = torch.as_tensor(depth_right, dtype=torch.float32)
+        depth = cv2.imread(depth_files[i], cv2.IMREAD_UNCHANGED) / 1000.0  # convert mm to m
+        depth = torch.as_tensor(depth, dtype=torch.float32)
         T_left_from_right = torch.as_tensor(T_left_from_right, dtype=torch.float32)
         K = torch.as_tensor(K, dtype=torch.float32)
-        disp = get_disp_l2r_from_depth_right(depth_right, T_left_from_right, K)
+        # disp = get_disp_l2r_from_depth_right(depth, T_left_from_right, K)
+        disp = get_disp_from_depth(depth, T_left_from_right, K)
 
         # save disparity map
         disp_file = depth_files[i].replace('depth', 'disparity')
@@ -70,8 +71,8 @@ def main():
             cv2.waitKey(0)
             cv2.destroyWindow("Disparity")
 
-            depth_right = depth_right * (depth_right > 0)
-            pcd = get_cloud_from_depth(depth_right.numpy(), K.numpy())
+            depth = depth * (depth > 0)
+            pcd = get_cloud_from_depth(depth.numpy(), K.numpy())
             o3d.visualization.draw_geometries([pcd])
 
 

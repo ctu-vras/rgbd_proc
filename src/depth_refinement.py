@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from time import time
 from disp_refine.linknet import DispRef
-from disp_refine.utils import get_disp_l2r_from_depth_right
+from disp_refine.utils import get_disp_from_depth, get_disp_l2r_from_depth_right
 from disp_refine.vis import colorize_img
 
 import rclpy
@@ -42,7 +42,7 @@ class DepthRefinementNode(Node):
 
         self.img_topics = ['/camera_left/image_rect', '/camera_right/image_rect']
         self.left_camera_info_topic = '/camera_left/camera_info'
-        self.depth_topic = '/depth_right'  # TODO: subscribe to the depth in the left camera coordinate frame when available
+        self.depth_topic = '/depth_in'
 
         self.cv_bridge = CvBridge()
         self._tf_buffer = tf2_ros.Buffer()
@@ -53,7 +53,7 @@ class DepthRefinementNode(Node):
         self.max_age = self.get_parameter('max_age').get_parameter_value().double_value
 
         # depth publisher
-        self.depth_pub = self.create_publisher(Image, f'/depth_left_refined', 10)
+        self.depth_pub = self.create_publisher(Image, f'/depth_refined', 10)
 
     def safe_lookup_transform(self, target_frame, source_frame, time):
         try:
@@ -137,7 +137,7 @@ class DepthRefinementNode(Node):
         self._logger.debug(f'Camera baseline is {self.cams_baseline:.3f} m')
 
         imgL = self.cv_bridge.imgmsg_to_cv2(imgL_msg, desired_encoding='passthrough')
-        depth_right = self.cv_bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
+        depth_in = self.cv_bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
 
         mean, std = self.normal_mean_var["mean"], self.normal_mean_var["std"]
         img_in_norm = torch.from_numpy(imgL / 255.).to(self.device)
@@ -147,8 +147,9 @@ class DepthRefinementNode(Node):
         T_left_from_right = torch.eye(4, dtype=torch.float32).to(self.device)
         T_left_from_right[0, 3] = self.cams_baseline
         K = torch.as_tensor(left_cam_info_msg.k, dtype=torch.float32).reshape(3, 3).to(self.device)
-        depth_right = torch.as_tensor(depth_right, dtype=torch.float32).to(self.device) / 1000.  # meters
-        disp_in = get_disp_l2r_from_depth_right(depth_right, T_left_from_right, K)
+        depth_in = torch.as_tensor(depth_in, dtype=torch.float32).to(self.device) / 1000.  # meters
+        # disp_in = get_disp_l2r_from_depth_right(depth_in, T_left_from_right, K)
+        disp_in = get_disp_from_depth(depth_in, T_left_from_right, K)
         self._logger.debug(f"L2R disparity shape: {disp_in.shape}")
 
         disp_in_norm = disp_in / self.max_disp

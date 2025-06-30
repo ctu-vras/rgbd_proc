@@ -5,6 +5,7 @@
   <arg name="right_namespace" default="/luxonis/oak/right" />
   <arg name="device" default="cpu" />
   <arg name="vis" default="false" />
+  <arg name="output_cloud_topic" default="/points" />
 
   <!-- Depth refinement node -->
   <node pkg="rgbd_proc" exec="depth_refinement.py" name="depth_refinement" output="screen">
@@ -17,8 +18,8 @@
     <remap from="/camera_left/image_rect" to="$(var left_namespace)/image_rect" />
     <remap from="/camera_left/camera_info" to="$(var left_namespace)/camera_info" />
     <remap from="/camera_right/image_rect" to="$(var right_namespace)/image_rect" />
-    <remap from="/depth_right" to="/luxonis/oak/stereo/image_raw/depth" />
-    <remap from="/depth_left_refined" to="/depth_left_refined" />
+    <remap from="/depth_in" to="/luxonis/oak/stereo/image_raw/depth" />
+    <remap from="/depth_refined" to="/depth_refined" />
   </node>
 
   <!-- Depth filtering -->
@@ -30,18 +31,18 @@
     <param name="median_filter.enabled" value="true" />
     <param name="median_filter.kernel_size" value="5" />
 
-    <remap from="/depth" to="/depth_left_refined" />
+    <remap from="/depth" to="/depth_refined" />
     <remap from="/camera_info" to="/luxonis/oak/stereo/camera_info" />
-    <remap from="/filtered_depth" to="/depth_left_refined_filtered" />
+    <remap from="/filtered_depth" to="/depth_refined_filtered" />
   </node>
 
   <!-- Publish point cloud from depth image -->
   <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node" output="screen">
-<!--    <remap from="depth_registered/image_rect" to="/depth_left_refined" />-->
-    <remap from="depth_registered/image_rect" to="/depth_left_refined_filtered" />
+<!--    <remap from="depth_registered/image_rect" to="/depth_refined" />-->
+    <remap from="depth_registered/image_rect" to="/depth_refined_filtered" />
     <remap from="rgb/image_rect_color" to="$(var left_namespace)/image_rect" />
     <remap from="rgb/camera_info" to="$(var left_namespace)/camera_info" />
-    <remap from="points" to="/points" />
+    <remap from="points" to="$(var output_cloud_topic)" />
 
     <param name="approximate_sync" value="true" />
     <param name="queue_size" value="10" />
