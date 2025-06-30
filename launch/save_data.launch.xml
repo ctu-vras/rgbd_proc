@@ -61,7 +61,7 @@
 
     <param name="period" value="1.0" />
     <param name="output_path" value="$(var output_path)" />
-    <param name="save_calibration" value="false" />
+    <param name="save_calibration" value="true" />
   </node>
 
 </launch>

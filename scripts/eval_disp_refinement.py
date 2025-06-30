@@ -11,7 +11,7 @@ from disp_refine.vis import colorize_img
 def parse_args():
     parser = argparse.ArgumentParser(description='Disparity Correction Evaluation')
     parser.add_argument('--dataset_path', type=str,
-                        default='../data/ROUGH/helhest_2025_06_13-15_01_10',
+                        default='../data/Helhest/helhest_2025_06_13-15_01_10',
                         help='Path to the dataset')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
                         help='Device to use for evaluation (cuda or cpu)')
@@ -141,6 +141,8 @@ def inference_test(agrs):
     img_dummy = torch.randn(1, 1, 480, 768).to(device)
     disp_dummy = torch.randn(1, 1, 480, 768).to(device)
     inputs = torch.cat([img_dummy, disp_dummy], dim=1)
+
+    model = torch.jit.trace(model, inputs)
 
     n_iters = 100
     t0 = time()

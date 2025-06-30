@@ -26,7 +26,7 @@ def str2bool(v):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Convert Depth to Disparity')
-    parser.add_argument('--seq_path', type=str, default='../data/ROUGH/helhest_2025_06_13-16_00_06',
+    parser.add_argument('--seq_path', type=str, default='../data/Helhest/helhest_2025_06_13-16_00_06',
                         help='Path to the sequence directory')
     parser.add_argument('--vis', type=str2bool, default='False',
                         help='Whether to visualize the depth map')
