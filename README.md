@@ -10,7 +10,7 @@ Tools to process RGB-D data collected from the
 ## Data
 
 The data sequences are available at the
-[VRAS Google Drive](https://drive.google.com/drive/folders/1_5iJRS2hdHm6ds8jug7OvpLtyEm07w4Y?usp=sharing)
+[subtdata:/data/disparity-refinement](http://subtdata.felk.cvut.cz/disparity-refinement/)
 containing:
 - disparity maps,
 - depth images,
