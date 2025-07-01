@@ -140,7 +140,7 @@ class DepthRefinementNode(Node):
         depth_in = self.cv_bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
 
         mean, std = self.normal_mean_var["mean"], self.normal_mean_var["std"]
-        img_in_norm = torch.from_numpy(imgL / 255.).to(self.device)
+        img_in_norm = torch.from_numpy(imgL / imgL.max()).to(self.device)
         img_in_norm = (img_in_norm - mean) / std
         self._logger.debug(f"Left image shape: {img_in_norm.shape}")
 

@@ -35,6 +35,12 @@ data_sequences = [
     'helhest_2025_06_27-13_32_23',
     'helhest_2025_06_27-13_33_34',
     'helhest_2025_06_27-13_35_04',
+    'helhest_2025_06_30-15_56_09',
+    'helhest_2025_06_30-15_59_13',
+    'helhest_2025_06_30-16_08_30',
+    'helhest_2025_06_30-16_10_40',
+    'helhest_2025_06_30-16_11_27',
+    'helhest_2025_06_30-16_12_34',
 ]
 pkg_path = os.path.join(os.path.dirname(__file__), '../../')
 data_sequences = [os.path.realpath(os.path.join(pkg_path, 'data/Helhest/', seq)) for seq in data_sequences]

@@ -11,7 +11,7 @@ from disp_refine.vis import colorize_img
 def parse_args():
     parser = argparse.ArgumentParser(description='Disparity Correction Evaluation')
     parser.add_argument('--dataset_path', type=str,
-                        default='../data/Helhest/helhest_2025_06_13-15_01_10',
+                        default='../data/Helhest/helhest_2025_06_30-16_10_40',
                         help='Path to the dataset')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
                         help='Device to use for evaluation (cuda or cpu)')
@@ -26,7 +26,7 @@ def data_test(args):
 
     ds = Data(dataset_path)
 
-    i = 150
+    i = 0
     img, disp_in, disp_gt = ds[i]
     max_disp = float(min(disp_in.max(), disp_gt.max()))
 
