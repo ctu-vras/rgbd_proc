@@ -50,3 +50,17 @@ Make sure to adjust the paths and data topics.
     ```commandline
     ros2 launch rgbd_proc save_data.launch.xml bag_path:=/path/to/bag output_path:=/path/to/save/data
     ```
+
+### Depth Refinement
+
+- **Architecture**: LinkNet with Mobilenet_v2 and ResNet18 encoders from [SMP](https://github.com/qubvel-org/segmentation_models.pytorch)
+- **Input**: Left Gray Image + Original Disparity
+- **Output**: Refined Disparity
+- **Training Labels (Disparity)**: distillation from [DEFOM-Stereo](https://github.com/Insta360-Research-Team/DEFOM-Stereo)
+- **Data**: [subtdata:/data/disparity-refinement](http://subtdata.felk.cvut.cz/disparity-refinement/)
+- **CPU Optimization**: with `torch.jit.trace`, [docs](https://docs.pytorch.org/docs/stable/generated/torch.jit.trace.html)
+- **ROS2**: node tested with Luxonis OAK camera (long-range)
+
+  ```commandline
+  ros2 launch rgbd_proc depth_refinement.launch.xml
+  ```
