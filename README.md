@@ -55,7 +55,13 @@ Make sure to adjust the paths and data topics.
 
 - **Architecture**: LinkNet with Mobilenet_v2 and ResNet18 encoders from [SMP](https://github.com/qubvel-org/segmentation_models.pytorch)
 - **Input**: Left Gray Image + Original Disparity
+
+  <img src="./docs/imgs/disp_in_and_img_gray.png" height="200"/>
+
 - **Output**: Refined Disparity
+
+  <img src="./docs/imgs/disp_refined.png" height="200"/>
+  
 - **Training Labels (Disparity)**: distillation from [DEFOM-Stereo](https://github.com/Insta360-Research-Team/DEFOM-Stereo)
 - **Data**: [subtdata:/data/disparity-refinement](http://subtdata.felk.cvut.cz/disparity-refinement/)
 - **CPU Optimization**: with `torch.jit.trace`, [docs](https://docs.pytorch.org/docs/stable/generated/torch.jit.trace.html)
