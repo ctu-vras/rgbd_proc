@@ -7,6 +7,7 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
+from disp_refine.vis import colorize_img
 
 
 def cloud_from_depth(depth: np.ndarray, K: np.ndarray) -> np.ndarray:
@@ -39,12 +40,16 @@ class DepthFilter(Node):
         self.vis = self.declare_parameter('vis', False).value
 
         # fov filter parameters
-        self.declare_parameter('fov_filter.enabled', True)
-        self.declare_parameter('fov_filter.min_angle', -15.0)
-        self.declare_parameter('fov_filter.max_angle', 15.0)
+        self.declare_parameter('fov_filter.enabled', False)
+        self.declare_parameter('fov_filter.top_angle', 90.0)
+        self.declare_parameter('fov_filter.bottom_angle', 90.0)
+        self.declare_parameter('fov_filter.left_angle', 90.0)
+        self.declare_parameter('fov_filter.right_angle', 90.0)
         self.fov_filter_enabled = self.get_parameter('fov_filter.enabled').get_parameter_value().bool_value
-        self.min_angle = self.get_parameter('fov_filter.min_angle').get_parameter_value().double_value
-        self.max_angle = self.get_parameter('fov_filter.max_angle').get_parameter_value().double_value
+        self.top_angle = self.get_parameter('fov_filter.top_angle').get_parameter_value().double_value
+        self.bottom_angle = self.get_parameter('fov_filter.bottom_angle').get_parameter_value().double_value
+        self.left_angle = self.get_parameter('fov_filter.left_angle').get_parameter_value().double_value
+        self.right_angle = self.get_parameter('fov_filter.right_angle').get_parameter_value().double_value
 
         # median filter parameters
         self.declare_parameter('median_filter.enabled', False)
@@ -101,20 +106,28 @@ class DepthFilter(Node):
         # Filter based on elevation angle
         if self.K is not None and self.fov_filter_enabled:
             # Get the camera intrinsic parameters
+            fx = self.K[0, 0]
+            cx = self.K[0, 2]
             fy = self.K[1, 1]
             cy = self.K[1, 2]
 
             # Create a meshgrid of pixel coordinates
-            min_angle = self.min_angle * np.pi / 180
-            max_angle = self.max_angle * np.pi / 180
+            top_angle_rad = self.top_angle * np.pi / 180.
+            bottom_angle_rad = self.bottom_angle * np.pi / 180.
+            left_angle_rad = self.left_angle * np.pi / 180.
+            right_angle_rad = self.right_angle * np.pi / 180.
 
             # Convert to row range
-            min_row = int(cy + fy * np.tan(min_angle))
-            max_row = int(cy + fy * np.tan(max_angle))
-            self._logger.debug(f"min_row={min_row}, max_row={max_row}")
+            min_row = -int(cy + fy * np.tan(top_angle_rad))
+            max_row = int(cy + fy * np.tan(bottom_angle_rad))
+            min_col = -int(cx + fx * np.tan(left_angle_rad))
+            max_col = int(cx + fx * np.tan(right_angle_rad))
+            self._logger.debug(f"min_row={min_row}, max_row={max_row}, min_col={min_col}, max_col={max_col}")
 
             depth_filtered[:min_row] = 0
             depth_filtered[max_row:] = 0
+            depth_filtered[:, :min_col] = 0
+            depth_filtered[:, max_col:] = 0
 
         if self.K is not None and self.dist_filter_enabled:
             # points = cloud_from_depth(depth_filtered, self.K)
@@ -124,11 +137,7 @@ class DepthFilter(Node):
         if self.vis:
             # show the colorized result
             result = np.concatenate((depth, depth_filtered), axis=1)
-            result_vis = result.copy()
-            result_vis = cv2.normalize(result_vis, None, 0, 255, cv2.NORM_MINMAX)
-            result_vis = np.uint8(result_vis)
-            result_vis = cv2.applyColorMap(result_vis, cv2.COLORMAP_JET)
-            result_vis = cv2.cvtColor(result_vis, cv2.COLOR_RGB2BGR)
+            result_vis = colorize_img(result)
             cv2.imshow("Before vs After", result_vis)
             cv2.waitKey(1)
 

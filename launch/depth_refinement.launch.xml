@@ -8,7 +8,7 @@
   <arg name="output_cloud_topic" default="/points" />
 
   <!-- Depth refinement node -->
-  <node pkg="rgbd_proc" exec="depth_refinement.py" name="depth_refinement" output="screen">
+  <node pkg="rgbd_proc" exec="depth_refinement.py" name="depth_refinement">
     <param name="weights" value="$(var weights)" />
     <param name="device" value="$(var device)" />
     <param name="max_msgs_delay" value="0.05" />
@@ -24,9 +24,13 @@
 
   <!-- Depth filtering -->
   <node pkg="rgbd_proc" exec="depth_filter.py" name="depth_filter" output="screen">
+    <param name="vis" value="false" />
+
     <param name="fov_filter.enabled" value="true" />
-    <param name="fov_filter.min_angle" value="-15.0" />
-    <param name="fov_filter.max_angle" value="15.0" />
+    <param name="fov_filter.top_angle" value="10.0" />
+    <param name="fov_filter.bottom_angle" value="90.0" />
+    <param name="fov_filter.left_angle" value="40.0" />
+    <param name="fov_filter.right_angle" value="40.0" />
 
     <param name="median_filter.enabled" value="true" />
     <param name="median_filter.kernel_size" value="5" />
@@ -37,8 +41,7 @@
   </node>
 
   <!-- Publish point cloud from depth image -->
-  <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node" output="screen">
-<!--    <remap from="depth_registered/image_rect" to="/depth_refined" />-->
+  <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node">
     <remap from="depth_registered/image_rect" to="/depth_refined_filtered" />
     <remap from="rgb/image_rect_color" to="$(var left_namespace)/image_rect" />
     <remap from="rgb/camera_info" to="$(var left_namespace)/camera_info" />

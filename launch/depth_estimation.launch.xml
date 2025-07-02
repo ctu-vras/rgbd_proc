@@ -53,8 +53,8 @@
   <!-- Depth filtering -->
   <node pkg="rgbd_proc" exec="depth_filter.py" name="depth_filter" output="screen">
     <param name="fov_filter.enabled" value="true" />
-    <param name="fov_filter.min_angle" value="-15.0" />
-    <param name="fov_filter.max_angle" value="90.0" />
+    <param name="fov_filter.top_angle" value="15.0" />
+    <param name="fov_filter.bottom_angle" value="90.0" />
 
     <remap from="/depth" to="/psmnet_depth" />
     <remap from="/camera_info" to="/luxonis/oak/stereo/camera_info" />

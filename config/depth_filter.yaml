@@ -4,8 +4,8 @@ depth_filter:
 
     fov_filter:
       enabled: false
-      min_angle: -15.0
-      max_angle: 15.0
+      top_angle: 15.0
+      bottom_angle: 15.0
 
     median_filter:
       enabled: false
