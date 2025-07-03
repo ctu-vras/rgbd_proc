@@ -36,12 +36,12 @@ class DepthRefinementNode(Node):
         self.max_disp = self.get_parameter('max_disp').get_parameter_value().integer_value
         self.vis = self.get_parameter('vis').get_parameter_value().bool_value
 
-        self._logger.set_level(LoggingSeverity.DEBUG)
+        self._logger.set_level(LoggingSeverity.WARN)
 
         self.model = self.load_model()
 
-        self.img_topics = ['/camera_left/image_rect', '/camera_right/image_rect']
-        self.left_camera_info_topic = '/camera_left/camera_info'
+        self.left_img_topic = '/camera_left/image_rect'
+        self.camera_info_topics = ['/camera_left/camera_info', '/camera_right/camera_info']
         self.depth_topic = '/depth_in'
 
         self.cv_bridge = CvBridge()
@@ -105,12 +105,13 @@ class DepthRefinementNode(Node):
     def start(self):
         # subscribe to topics with approximate time synchronization
         subs = []
-        for topic in self.img_topics + [self.depth_topic]:
+        for topic in [self.left_img_topic, self.depth_topic]:
             self._logger.info('Subscribing to %s' % topic)
             subs.append(Subscriber(self, Image, topic))
 
-        self._logger.info('Subscribing to %s' % self.left_camera_info_topic)
-        subs.append(Subscriber(self, CameraInfo, self.left_camera_info_topic))
+        for topic in self.camera_info_topics:
+            self._logger.info('Subscribing to %s' % topic)
+            subs.append(Subscriber(self, CameraInfo, topic))
 
         sync = ApproximateTimeSynchronizer(subs, queue_size=10, slop=self.max_msgs_delay)
         sync.registerCallback(self.callback)
@@ -129,11 +130,11 @@ class DepthRefinementNode(Node):
 
     @torch.inference_mode()
     def proc(self, *msgs):
-        imgL_msg, imgR_msg, depth_msg, left_cam_info_msg = msgs
+        imgL_msg, depth_msg, left_cam_info_msg, right_cam_info_msg = msgs
         self._logger.info('Processing images')
 
         if self.cams_baseline is None:
-            self.cams_baseline = self.get_cams_baseline(imgL_msg, imgR_msg)
+            self.cams_baseline = self.get_cams_baseline(left_cam_info_msg, right_cam_info_msg)
         self._logger.debug(f'Camera baseline is {self.cams_baseline:.3f} m')
 
         imgL = self.cv_bridge.imgmsg_to_cv2(imgL_msg, desired_encoding='passthrough')

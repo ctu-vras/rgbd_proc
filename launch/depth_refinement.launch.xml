@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/disp_refine/linknet_resnet18_encoder_depth_3.pth" />
-  <arg name="left_namespace" default="/luxonis/oak/left" />
-  <arg name="right_namespace" default="/luxonis/oak/right" />
+  <arg name="in_left_cam_topic" default="/camera_left/image_rect"/>
+  <arg name="in_left_cam_info_topic" default="/camera_left/camera_info"/>
+  <arg name="in_right_cam_info_topic" default="/camera_right/camera_info"/>
+  <arg name="in_depth_topic" default="/depth"/>
+
   <arg name="device" default="cpu" />
   <arg name="vis" default="false" />
-  <arg name="output_cloud_topic" default="/points" />
+  <arg name="output_cloud_topic" default="/points_refined" />
 
   <!-- Depth refinement node -->
   <node pkg="rgbd_proc" exec="depth_refinement.py" name="depth_refinement">
@@ -15,15 +18,15 @@
     <param name="max_age" value="0.5" />
     <param name="vis" value="$(var vis)" />
 
-    <remap from="/camera_left/image_rect" to="$(var left_namespace)/image_rect" />
-    <remap from="/camera_left/camera_info" to="$(var left_namespace)/camera_info" />
-    <remap from="/camera_right/image_rect" to="$(var right_namespace)/image_rect" />
-    <remap from="/depth_in" to="/luxonis/oak/stereo/image_raw/depth" />
+    <remap from="/camera_left/image_rect" to="$(var in_left_cam_topic)" />
+    <remap from="/camera_left/camera_info" to="$(var in_left_cam_info_topic)" />
+    <remap from="/camera_right/camera_info" to="$(var in_right_cam_info_topic)" />
+    <remap from="/depth_in" to="$(var in_depth_topic)" />
     <remap from="/depth_refined" to="/depth_refined" />
   </node>
 
   <!-- Depth filtering -->
-  <node pkg="rgbd_proc" exec="depth_filter.py" name="depth_filter" output="screen">
+  <node pkg="rgbd_proc" exec="depth_filter.py" name="depth_filter">
     <param name="vis" value="false" />
 
     <param name="fov_filter.enabled" value="true" />
@@ -35,16 +38,20 @@
     <param name="median_filter.enabled" value="true" />
     <param name="median_filter.kernel_size" value="5" />
 
+    <param name="dist_filter.enabled" value="false" />
+    <param name="dist_filter.min_dist" value="1.0" />
+    <param name="dist_filter.max_dist" value="10.0" />
+
     <remap from="/depth" to="/depth_refined" />
-    <remap from="/camera_info" to="/luxonis/oak/stereo/camera_info" />
+    <remap from="/camera_info" to="$(var in_depth_topic)" />
     <remap from="/filtered_depth" to="/depth_refined_filtered" />
   </node>
 
   <!-- Publish point cloud from depth image -->
   <node pkg="depth_image_proc" exec="point_cloud_xyzrgb_node" name="point_cloud_xyz_node">
     <remap from="depth_registered/image_rect" to="/depth_refined_filtered" />
-    <remap from="rgb/image_rect_color" to="$(var left_namespace)/image_rect" />
-    <remap from="rgb/camera_info" to="$(var left_namespace)/camera_info" />
+    <remap from="rgb/image_rect_color" to="$(var in_left_cam_topic)" />
+    <remap from="rgb/camera_info" to="$(var in_left_cam_info_topic)" />
     <remap from="points" to="$(var output_cloud_topic)" />
 
     <param name="approximate_sync" value="true" />

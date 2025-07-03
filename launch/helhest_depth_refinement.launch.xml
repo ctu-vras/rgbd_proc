@@ -10,15 +10,18 @@
 
   <!-- Depth refinement node -->
   <include file="$(find-pkg-share rgbd_proc)/launch/depth_refinement.launch.xml">
-    <arg name="left_namespace" value="/luxonis/oak/left" />
-    <arg name="right_namespace" value="/luxonis/oak/right" />
+    <arg name="in_left_cam_topic" value="/luxonis/oak/left/image_rect" />
+    <arg name="in_left_cam_info_topic" value="/luxonis/oak/left/camera_info" />
+    <arg name="in_right_cam_info_topic" value="/luxonis/oak/right/camera_info" />
+    <arg name="in_depth_topic" value="/luxonis/oak/stereo/image_raw/depth" />
     <arg name="weights" value="$(var weights)" />
     <arg name="device" value="cpu" />
     <arg name="vis" value="false" />
+    <arg name="output_cloud_topic" value="/points_refined" />
   </include>
 
   <!-- RVIZ2 -->
-  <node if="1" pkg="rviz2" exec="rviz2" name="rviz2"
+  <node pkg="rviz2" exec="rviz2" name="rviz2"
       args="-d $(find-pkg-share rgbd_proc)/config/rviz/depth_refinement.rviz"/>
 
 </launch>
