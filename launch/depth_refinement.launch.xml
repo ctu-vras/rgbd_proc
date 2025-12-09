@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <arg name="weights" default="$(find-pkg-share rgbd_proc)/config/weights/disp_refine/linknet_resnet18_encoder_depth_3.pth" />
-  <arg name="in_left_cam_topic" default="/camera_left/image_rect"/>
-  <arg name="in_left_cam_info_topic" default="/camera_left/camera_info"/>
-  <arg name="in_right_cam_info_topic" default="/camera_right/camera_info"/>
-  <arg name="in_depth_topic" default="/depth"/>
+  <arg name="in_left_cam_topic" default="/luxonis/oak/left/image_rect"/>
+  <arg name="in_left_cam_info_topic" default="/luxonis/oak/left/camera_info"/>
+  <arg name="in_right_cam_info_topic" default="/luxonis/oak/right/camera_info"/>
+  <arg name="in_depth_topic" default="/luxonis/oak/stereo/image_raw"/>
 
-  <arg name="device" default="cpu" />
+  <arg name="device" default="cuda" />
   <arg name="vis" default="false" />
   <arg name="output_cloud_topic" default="/points_refined" />
 

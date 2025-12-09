@@ -1,5 +1,8 @@
 import numpy as np
-import open3d as o3d
+try:
+    import open3d as o3d
+except ImportError:
+    print('Warn: can not import Open3d')
 import torch
 
 
@@ -93,7 +96,7 @@ def get_disp_l2r_from_depth_right(depth_right, T_left_from_right, K):
     return disp_l2r
 
 
-def get_cloud_from_depth(depth_mm: np.ndarray, K: np.ndarray, rgb=None) -> o3d.geometry.PointCloud:
+def get_cloud_from_depth(depth_mm: np.ndarray, K: np.ndarray, rgb=None):
     height, width = depth_mm.shape
 
     # Generate pixel coordinates
